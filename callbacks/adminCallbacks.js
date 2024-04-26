@@ -110,10 +110,12 @@ export async function handleAdminProxies(bot, callbackQuery) {
     if (result.permission) {
       const proxies = await ProxyModel.find();
 
-      let message = '<b>Все прокси:</b>\n\n';
+      let message = '<b>Все прокси:</b>';
       proxies.forEach((proxy, index) => {
-        message += `<b>Прокси ${proxy.login}: - ${
-          proxy.isFree ? 'СВОБОДНО' : `ЗАНЯТО ${proxy.userTelegramId} `
+        message += `\n\n<b>Прокси ${proxy.login}: - ${
+          proxy.isFree
+            ? 'СВОБОДНО'
+            : `ЗАНЯТО ${proxy.userTelegramId} ${getTimeRemaining(proxy.expirationDate)}`
         }</b>\n`;
         message += `Host: ${proxy.hostIp}\n`;
         message += `Socks порт: ${proxy.socksPort}\n`;
@@ -122,7 +124,7 @@ export async function handleAdminProxies(bot, callbackQuery) {
         message += `Пароль: ${proxy.password}\n`;
         message += `Ссылка для смены IP: <code>${proxy.changeIpUrl}</code>\n`;
         proxy.expirationDate
-          ? (message += `Дата окончания: ${formatter.format(proxy.expirationDate)}\n\n`)
+          ? (message += `Дата окончания: ${formatter.format(proxy.expirationDate)}`)
           : ``;
       });
 
@@ -147,6 +149,19 @@ export async function handleAdminProxies(bot, callbackQuery) {
   } catch (err) {
     console.error('Ошибка:', err.message);
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+function getTimeRemaining(expirationDate) {
+  if (!expirationDate) return '';
+  const now = new Date();
+  const diff = expirationDate - now;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  if (days > 0) {
+    return `${days} дн. ${hours} час.`;
+  } else {
+    return `${hours} час.`;
   }
 }
 
