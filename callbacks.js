@@ -16,6 +16,7 @@ import {
   handleMyBalance,
   handleTopupBalance,
   handleTopupBalance8,
+  handleTopupBalance25,
 } from './callbacks/balanceCallbacks.js';
 
 const actionHandlers = {
@@ -31,13 +32,16 @@ const actionHandlers = {
   my_balance: handleMyBalance,
   topup_balance: handleTopupBalance,
   topup_8: handleTopupBalance8,
+  topup_25: handleTopupBalance25,
   buy_proxies: handleBuyProxies,
   rent_7_days: handleRentProxy,
   rent_30_days: handleRentProxy,
 };
 
 const userAgreementURL =
-  'https://docs.google.com/document/d/1JB_YbDjhIJdAwPsgKHMu4-pM_A-KlMpL8dJ0YOBd-sU/edit?usp=sharing';
+  'https://docs.google.com/document/d/17QsXL8k_zCq6i8F-yKxqGsnQ2ROwt4PZUZPhPiq_6Vs/edit?usp=sharing';
+const privacyPolicyURL =
+  'https://docs.google.com/document/d/1idyS_5VNLUdn6LJpJKVn6mvbNZ3_YGAyif9KIAIX-_E/edit?usp=sharing';
 
 const options = {
   timeZone: 'Europe/Kiev',
@@ -97,7 +101,7 @@ async function handleUser(bot, callbackQuery) {
         ...profileOptions,
       });
     } else {
-      const registerMessage = `Для регистрации необходимо принять <a href="${userAgreementURL}">пользовательское соглашение</a>. Принять?`;
+      const registerMessage = `Для регистрации необходимо принять <a href="${userAgreementURL}">Пользовательское соглашение</a> и <a href="${privacyPolicyURL}">Политику конфиденциальности</a>. Принять?`;
       const registerOptions = {
         parse_mode: 'HTML',
         reply_markup: {

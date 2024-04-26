@@ -27,7 +27,7 @@ export async function handleMyProxies(bot, callbackQuery) {
           proxiesMessage += `Дата окончания: ${formatter.format(proxy.expirationDate)}\n\n`;
         });
       } else {
-        proxiesMessage = 'У вас пока нет купленных прокси';
+        proxiesMessage = 'У вас пока нет купленных прокси.';
       }
 
       const proxiesOptions = {
@@ -36,7 +36,7 @@ export async function handleMyProxies(bot, callbackQuery) {
           inline_keyboard: [
             [
               { text: '💳 Купить прокси', callback_data: 'buy_proxies' },
-              { text: '✍️ Проверить прокси', callback_data: 'check_proxy' },
+              // { text: '✍️ Проверить прокси', callback_data: 'check_proxy' },
             ],
             [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
           ],
@@ -168,8 +168,6 @@ export async function handleRentProxy(bot, callbackQuery) {
       const proxy = await ProxyModel.findOne({ isFree: true });
 
       let confirmationMessage = ``;
-
-      // Проверяем достаточно ли средств на балансе пользователя
 
       if (!proxy) {
         confirmationMessage += 'Извините, нет доступных прокси в данный момент.';
