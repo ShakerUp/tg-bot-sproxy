@@ -107,3 +107,55 @@ export async function handleGiveProxy(bot, msg, match) {
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
   }
 }
+
+export async function addProxy(bot, message) {
+  const chatId = message.chat.id;
+  const userId = message.from.id;
+  const proxyData = message.text.split(' | ');
+
+  try {
+    const result = await checkAuth(userId, 'admin');
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+    const socksMatch = proxyData.find((item) => item.includes('SOCKS5'));
+    const httpMatch = proxyData.find((item) => item.includes('HTTP'));
+    const changeIpMatch = proxyData.find((item) => item.includes('ChangeIP'));
+
+    if (socksMatch && httpMatch && changeIpMatch) {
+      // Извлекаем данные из сообщения
+      const socksParts = socksMatch.split(': ');
+      const httpParts = httpMatch.split(': ');
+      const changeIpParts = changeIpMatch.split(': ');
+
+      const hostIp = socksParts[1].split(':')[0];
+      const socksPort = parseInt(socksParts[1].split(':')[1]);
+      const login = socksParts[1].split(':')[2];
+      const password = socksParts[1].split(':')[3];
+      const httpPort = parseInt(httpParts[1].split(':')[1]);
+      const changeIpUrl = changeIpParts[1].trim();
+
+      // Создаем новую запись прокси
+      const newProxy = await ProxyModel.create({
+        hostIp,
+        socksPort,
+        login,
+        password,
+        httpPort,
+        changeIpUrl,
+        isFree: true,
+      });
+
+      // Отправляем ответ пользователю
+      const responseMessage = `Прокси успешно добавлена:\n\nHost IP: ${newProxy.hostIp}\nSOCKS Port: ${newProxy.socksPort}\nHTTP Port: ${newProxy.httpPort}\nLogin: ${newProxy.login}\nPassword: ${newProxy.password}\nChange IP URL: ${newProxy.changeIpUrl}`;
+      bot.sendMessage(chatId, responseMessage);
+    } else {
+      // Если не удалось извлечь все данные
+      bot.sendMessage(chatId, 'Ошибка: Не удалось извлечь все данные из сообщения.');
+    }
+  } catch (error) {
+    console.error('Ошибка при добавлении прокси:', error.message);
+    bot.sendMessage(chatId, 'Произошла ошибка при добавлении прокси. Попробуйте позже.');
+  }
+}

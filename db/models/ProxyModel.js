@@ -38,9 +38,8 @@ const proxySchema = new mongoose.Schema(
     expirationDate: {
       type: Date,
     },
-    userTelegramId:{
+    userTelegramId: {
       type: String,
-      unique: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
