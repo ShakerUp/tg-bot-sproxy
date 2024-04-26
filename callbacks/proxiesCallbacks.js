@@ -79,8 +79,8 @@ export const handleBuyProxies = async (bot, callbackQuery) => {
     const keyboard = {
       inline_keyboard: [
         [
-          { text: '7 дней (8$)', callback_data: 'rent_7_days' },
-          { text: '30 дней (25$)', callback_data: 'rent_30_days' },
+          { text: '7 дней (9$)', callback_data: 'rent_7_days' },
+          { text: '30 дней (26$)', callback_data: 'rent_30_days' },
         ],
         [{ text: '🔙 Назад', callback_data: 'my_proxies' }],
       ],
@@ -161,10 +161,10 @@ export async function handleRentProxy(bot, callbackQuery) {
 
       if (action === 'rent_7_days') {
         days = 7;
-        price = 8;
+        price = 9;
       } else if (action === 'rent_30_days') {
         days = 30;
-        price = 25;
+        price = 26;
       } else {
         throw new Error('Invalid action');
       }
