@@ -21,7 +21,7 @@ bot.onText(/\/start/, (msg) => handleStart(bot, msg));
 bot.onText(/\/freeproxy (.+) (.+)/, (msg, match) => {
   handleFreeProxy(bot, msg, match);
 });
-bot.onText(/\/giveproxy (.+) (\d+)/, (msg, match) => handleGiveProxy(bot, msg, match));
+bot.onText(/\/giveproxy (\S+) (\d+) (\d+)/, (msg, match) => handleGiveProxy(bot, msg, match));
 bot.onText(/\/addproxy (.+)/, (msg, match) => {
   addProxy(bot, msg);
 });

@@ -56,7 +56,7 @@ export async function handleFreeProxy(bot, msg, match) {
 export async function handleGiveProxy(bot, msg, match) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
-  const [, targetUserId, amountOfDays] = match;
+  const [, proxyLogin, targetUserId, amountOfDays] = match;
 
   try {
     // Проверяем права администратора
@@ -73,17 +73,22 @@ export async function handleGiveProxy(bot, msg, match) {
     }
 
     // Находим пользователя, которому нужно выдать прокси
-    const targetUser = await UserModel.findOne({ telegramId: targetUserId });
+    const targetUser = await UserModel.findOne({ telegramId: parseInt(targetUserId) });
     if (!targetUser) {
       bot.sendMessage(chatId, 'Пользователь не найден.');
       return;
     }
 
-    // Проверяем наличие свободной прокси
-    const proxy = await ProxyModel.findOne({ isFree: true });
-
+    // Находим прокси по логину
+    const proxy = await ProxyModel.findOne({ login: proxyLogin });
     if (!proxy) {
-      bot.sendMessage(chatId, 'Извините, нет доступных прокси в данный момент.');
+      bot.sendMessage(chatId, 'Прокси с таким логином не найдено.');
+      return;
+    }
+
+    // Проверяем, что прокси свободно
+    if (!proxy.isFree) {
+      bot.sendMessage(chatId, 'Прокси уже назначено другому пользователю.');
       return;
     }
 
