@@ -1,8 +1,10 @@
 import ProxyModel from '../db/models/ProxyModel.js';
+import TransactionModel from '../db/models/TransactionModel.js';
 import testProxy from '../bot/utils/proxyCheck.js';
 
 import { formatter } from '../callbacks.js';
 import checkAuth from '../db/middleware/checkAuth.js';
+import { getTransactionsByTelegramId } from '../createTransaction.js';
 
 export async function handleMyProxies(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
@@ -36,9 +38,8 @@ export async function handleMyProxies(bot, callbackQuery) {
           inline_keyboard: [
             [
               { text: '💳 Купить прокси', callback_data: 'buy_proxies' },
-              // { text: '✍️ Проверить прокси', callback_data: 'check_proxy' },
+              { text: '🔙 Назад', callback_data: 'login_or_register' },
             ],
-            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
           ],
         },
       };
@@ -60,10 +61,14 @@ export async function handleMyProxies(bot, callbackQuery) {
 export const handleBuyProxies = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
+  const telegramId = callbackQuery.from.id;
 
   try {
     // Получаем количество доступных прокси
     const availableProxiesCount = await ProxyModel.countDocuments({ isFree: true });
+
+    const transactions = await TransactionModel.find({ telegramId });
+    await getTransactionsByTelegramId(transactions);
 
     // Определяем стиль отображения количества в зависимости от их числа
     const proxiesCountMessage =

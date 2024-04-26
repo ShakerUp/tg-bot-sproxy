@@ -87,8 +87,20 @@ export const updateTransactionStatus = async (invoiceId) => {
           currency: transaction.currency,
         });
       }
-    }
+    } else if (transaction.status === 'reversed') {
+      // Если транзакция отменена, удаляем запись о пополнении баланса
+      const existingTopUp = await BalanceTopUpModel.findOneAndDelete({
+        transactionId: transaction._id,
+      });
 
+      if (existingTopUp) {
+        const updatedUser = await UserModel.findByIdAndUpdate(
+          transaction.userId,
+          { $inc: { balance: -existingTopUp.amount / 100 } },
+          { new: true },
+        );
+      }
+    }
     return transaction;
   } catch (error) {
     console.error('Ошибка при обновлении статуса транзакции:', error.message);
@@ -99,7 +111,7 @@ export const updateTransactionStatus = async (invoiceId) => {
 export const getTransactionsByTelegramId = async (transactions) => {
   try {
     const updatePromises = transactions
-      .filter((transaction) => ['created', 'success'].includes(transaction.status))
+      .filter((transaction) => ['created', 'success', 'reversed'].includes(transaction.status))
       .map((transaction) => updateTransactionStatus(transaction.invoiceId));
 
     await Promise.all(updatePromises);

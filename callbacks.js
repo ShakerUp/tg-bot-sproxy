@@ -5,6 +5,7 @@ import {
   handleAdminPanel,
   handleAdminUsers,
   handleAdminProxies,
+  handleAdminBalanceTopUps,
 } from './callbacks/adminCallbacks.js';
 import {
   handleMyProxies,
@@ -17,6 +18,7 @@ import {
   handleTopupBalance,
   handleTopupBalance8,
   handleTopupBalance25,
+  handleTopupBalance1,
 } from './callbacks/balanceCallbacks.js';
 
 const actionHandlers = {
@@ -33,15 +35,20 @@ const actionHandlers = {
   topup_balance: handleTopupBalance,
   topup_8: handleTopupBalance8,
   topup_25: handleTopupBalance25,
+  topup_1: handleTopupBalance1,
   buy_proxies: handleBuyProxies,
   rent_7_days: handleRentProxy,
   rent_30_days: handleRentProxy,
+  admin_balance_top_ups: handleAdminBalanceTopUps,
+  documents: handleDocuments,
 };
 
 const userAgreementURL =
   'https://docs.google.com/document/d/17QsXL8k_zCq6i8F-yKxqGsnQ2ROwt4PZUZPhPiq_6Vs/edit?usp=sharing';
 const privacyPolicyURL =
   'https://docs.google.com/document/d/1idyS_5VNLUdn6LJpJKVn6mvbNZ3_YGAyif9KIAIX-_E/edit?usp=sharing';
+const securityPolicyURL =
+  'https://docs.google.com/document/d/16xhrk9nMMW1PnHkfpINpfu2i2wGeVKkt3iUw5Z9vDFY/edit?usp=sharing';
 
 const options = {
   timeZone: 'Europe/Kiev',
@@ -88,7 +95,10 @@ async function handleUser(bot, callbackQuery) {
               { text: '🔗 Мои прокси', callback_data: 'my_proxies' },
               { text: '💰 Мой баланс', callback_data: 'my_balance' },
             ],
-            [{ text: '📋 На главную', callback_data: 'back' }],
+            [
+              { text: '📋 Документы', callback_data: 'documents' },
+              { text: '🔙 Назад', callback_data: 'back' },
+            ],
             user.role === 'admin'
               ? [{ text: '🛠️ Админ панель', callback_data: 'admin_panel' }]
               : [], // Добавляем кнопку только если пользователь администратор
@@ -124,6 +134,27 @@ async function handleUser(bot, callbackQuery) {
     console.error('Ошибка:', err.message);
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
   }
+}
+
+async function handleDocuments(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const documentsMessage = 'Выберите документ для просмотра:';
+  const documentsOptions = {
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Пользовательское соглашение', url: userAgreementURL }],
+        [{ text: 'Политика конфиденциальности', url: privacyPolicyURL }],
+        [{ text: 'Политика безопасности', url: securityPolicyURL }],
+        [{ text: '🔙 Назад', callback_data: 'back' }],
+      ],
+    },
+  };
+  bot.editMessageText(documentsMessage, {
+    chat_id: chatId,
+    message_id: callbackQuery.message.message_id,
+    ...documentsOptions,
+  });
 }
 
 async function handleAccept(bot, callbackQuery) {

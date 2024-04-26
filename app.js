@@ -22,5 +22,7 @@ bot.onText(/\/freeproxy (.+) (.+)/, (msg, match) => {
   handleFreeProxy(bot, msg, match);
 });
 bot.onText(/\/giveproxy (.+) (\d+)/, (msg, match) => handleGiveProxy(bot, msg, match));
+
+bot.on('message', (msg) => console.log(msg));
 // Обробник натискань кнопок
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));

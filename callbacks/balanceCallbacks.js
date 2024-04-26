@@ -84,6 +84,7 @@ export const handleTopupBalance = async (bot, callbackQuery) => {
           [
             { text: '8$', callback_data: 'topup_8' },
             { text: '25$', callback_data: 'topup_25' },
+            { text: '1$', callback_data: 'topup_1' },
           ],
           [{ text: '🔙 Назад', callback_data: 'my_balance' }],
         ],
@@ -137,6 +138,55 @@ export const handleTopupBalance8 = async (bot, callbackQuery) => {
     // Отправляем сообщение пользователю о создании платежа
     bot.editMessageText(
       `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите 8$.</a></b> в течении <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
+      {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[{ text: '💰 Мой баланс', callback_data: 'my_balance' }]],
+        },
+      },
+    );
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.editMessageText('Произошла ошибка. Попробуйте позже.', {
+      chat_id: chatId,
+      message_id: messageId,
+    });
+  }
+};
+
+export const handleTopupBalance1 = async (bot, callbackQuery) => {
+  const chatId = callbackQuery.message.chat.id;
+  const telegramId = callbackQuery.from.id;
+  const messageId = callbackQuery.message.message_id;
+
+  try {
+    // Находим пользователя по telegramId
+    const user = await UserModel.findOne({ telegramId });
+
+    if (!user) {
+      bot.editMessageText('Пользователь не найден.', {
+        chat_id: chatId,
+        message_id: messageId,
+      });
+      return;
+    }
+
+    // Создаем транзакцию для пополнения баланса на 8$
+    const transaction = await createTransaction(
+      user._id, // Идентификатор пользователя в базе данных
+      user.telegramId, //Телеграм айди юзера
+      100, // Сумма пополнения в копейках (8$ = 800 копеек)
+      840, // Код валюты (980 - гривна)
+      120, //Время в секудах дейстия
+      'Пополнение счета SimpleProxy', // Номер чека или описание платежа
+      'Пополнение баланса на 1$', // Призначение платежа
+    );
+
+    // Отправляем сообщение пользователю о создании платежа
+    bot.editMessageText(
+      `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите 1$.</a></b> в течении <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
       {
         chat_id: chatId,
         message_id: messageId,

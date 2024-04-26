@@ -1,8 +1,10 @@
 import checkAuth from '../db/middleware/checkAuth.js';
 import UserModel from '../db/models/UserModel.js';
 import ProxyModel from '../db/models/ProxyModel.js';
+import BalanceTopUpModel from '../db/models/BalanceTopUpModel.js';
 
 import { formatter } from '../callbacks.js';
+import { formatAmount } from '../bot/utils/formatters.js';
 
 export async function handleAdminPanel(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
@@ -19,6 +21,7 @@ export async function handleAdminPanel(bot, callbackQuery) {
             [
               { text: 'Пользователи', callback_data: 'admin_users' },
               { text: 'Прокси', callback_data: 'admin_proxies' },
+              { text: 'Пополнение баланса', callback_data: 'admin_balance_top_ups' },
             ],
             [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
           ],
@@ -140,6 +143,59 @@ export async function handleAdminProxies(bot, callbackQuery) {
       });
     } else {
       bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+    }
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export async function handleAdminBalanceTopUps(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const messageId = callbackQuery.message.message_id;
+  const telegramId = callbackQuery.from.id;
+
+  try {
+    const result = await checkAuth(telegramId, 'admin');
+
+    if (result.permission) {
+      const transactions = await BalanceTopUpModel.find().populate('userId');
+
+      if (transactions.length === 0) {
+        const noTransactionsMessage = 'Пока что нет пополнений баланса.';
+        const options = {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [[{ text: '🔙 Назад', callback_data: 'admin_panel' }]],
+          },
+        };
+        bot.editMessageText(noTransactionsMessage, options);
+        return;
+      }
+
+      let message = 'Список пополнений баланса:\n\n';
+      transactions.forEach((transaction, index) => {
+        message += `№${index + 1}\n`;
+        message += `Пользователь: ${transaction.userId.username}\n`;
+        message += `Сумма: ${formatAmount(transaction.amount)}\n`;
+        message += `Дата: ${transaction.createdAt}\n\n`;
+      });
+
+      const options = {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[{ text: '🔙 Назад', callback_data: 'admin_panel' }]],
+        },
+      };
+      bot.editMessageText(message, options);
+    }
+
+    if (!result) {
+      bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
     }
   } catch (err) {
     console.error('Ошибка:', err.message);
