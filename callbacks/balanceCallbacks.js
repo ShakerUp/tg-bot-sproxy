@@ -82,9 +82,9 @@ export const handleTopupBalance = async (bot, callbackQuery) => {
       const keyboard = {
         inline_keyboard: [
           [
+            { text: '1$', callback_data: 'topup_1' },
             { text: '8$', callback_data: 'topup_8' },
             { text: '25$', callback_data: 'topup_25' },
-            { text: '1$', callback_data: 'topup_1' },
           ],
           [{ text: '🔙 Назад', callback_data: 'my_balance' }],
         ],
