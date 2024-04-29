@@ -22,6 +22,7 @@ export async function handleFreeProxy(bot, msg, match) {
   const chatId = msg.chat.id;
   const proxyLogin = match[1];
   const newProxyPassword = match[2];
+  const newChangeIpUrl = match[3]; // Новый параметр для ссылки на смену IP
 
   try {
     const result = await checkAuth(msg.from.id, 'admin');
@@ -40,10 +41,14 @@ export async function handleFreeProxy(bot, msg, match) {
       proxy.password = newProxyPassword;
       proxy.userTelegramId = null;
       proxy.userId = null;
+      proxy.changeIpUrl = newChangeIpUrl; // Обновляем ссылку на смену IP
 
       await proxy.save();
 
-      bot.sendMessage(chatId, `Прокси ${proxyLogin} освобожден и установлен новый пароль.`);
+      bot.sendMessage(
+        chatId,
+        `Прокси ${proxyLogin} освобожден, установлен новый пароль, и обновлена ссылка для смены IP.`,
+      );
     } else {
       bot.sendMessage(chatId, 'У вас нет прав на это действие.');
     }
@@ -56,8 +61,9 @@ export async function handleFreeProxy(bot, msg, match) {
 export async function handleGiveProxy(bot, msg, match) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
-  const [, proxyLogin, targetUserId, amountOfDays] = match;
+  const [, proxyLogin, targetUserId, amountOfDaysString] = match;
 
+  console.log(amountOfDaysString);
   try {
     // Проверяем права администратора
     const result = await checkAuth(userId, 'admin');
@@ -67,7 +73,8 @@ export async function handleGiveProxy(bot, msg, match) {
     }
 
     // Проверяем, что количество дней указано и является числом
-    if (!amountOfDays || isNaN(amountOfDays)) {
+    const amountOfDays = parseFloat(amountOfDaysString);
+    if (isNaN(amountOfDays)) {
       bot.sendMessage(chatId, 'Некорректное количество дней.');
       return;
     }
@@ -91,10 +98,10 @@ export async function handleGiveProxy(bot, msg, match) {
       bot.sendMessage(chatId, 'Прокси уже назначено другому пользователю.');
       return;
     }
-
+    console.log(amountOfDays);
     // Устанавливаем срок окончания
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + parseInt(amountOfDays));
+    expirationDate.setHours(expirationDate.getHours() + amountOfDays * 24);
 
     // Обновляем модель прокси
     proxy.isFree = false;
