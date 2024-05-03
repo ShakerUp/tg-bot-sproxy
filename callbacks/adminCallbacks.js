@@ -108,7 +108,7 @@ export async function handleAdminProxies(bot, callbackQuery) {
     const result = await checkAuth(telegramId, 'admin');
 
     if (result.permission) {
-      const proxies = await ProxyModel.find();
+      const proxies = await ProxyModel.find().sort({ login: 1 })
 
       let message = '<b>Все прокси:</b>';
       proxies.forEach((proxy, index) => {
