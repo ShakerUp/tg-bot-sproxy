@@ -90,7 +90,7 @@ export const handleTopupBalance = async (bot, callbackQuery) => {
         ],
       };
 
-      bot.editMessageText('Выберите сумму для пополнения баланса:', {
+      bot.editMessageText('Выберите сумму для пополнения баланса:\n\nДля пополнения баланса криптовалютой, напишите в тех.поддержку.', {
         chat_id: chatId,
         message_id: messageId,
         reply_markup: keyboard,
