@@ -171,3 +171,32 @@ export async function addProxy(bot, message) {
     bot.sendMessage(chatId, 'Произошла ошибка при добавлении прокси. Попробуйте позже.');
   }
 }
+
+export async function allNoProxy(bot, msg, match) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const messageText = match[1];
+
+  try {
+    const result = await checkAuth(userId, 'admin');
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+    const usedProxies = await ProxyModel.find({ isFree: false }).distinct('userTelegramId');
+
+    const usersWithoutProxy = await UserModel.find({ telegramId: { $nin: usedProxies } });
+
+    for (const user of usersWithoutProxy) {
+      bot.sendMessage(user.chatId, messageText);
+    }
+
+    bot.sendMessage(
+      chatId,
+      `Сообщение успешно отправлено ${usersWithoutProxy.length} пользователям без прокси.`,
+    );
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
