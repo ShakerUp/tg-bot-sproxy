@@ -200,3 +200,27 @@ export async function allNoProxy(bot, msg, match) {
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
   }
 }
+
+export async function handleAllUsers(bot, msg, match) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const messageText = match[1];
+
+  try {
+    const result = await checkAuth(userId, 'admin');
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+    const allUsers = await UserModel.find();
+
+    for (const user of allUsers) {
+      bot.sendMessage(user.chatId, messageText);
+    }
+
+    bot.sendMessage(chatId, `Сообщение успешно отправлено ${allUsers.length} пользователям.`);
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}

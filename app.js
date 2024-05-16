@@ -1,6 +1,13 @@
 import TelegramBot from 'node-telegram-bot-api';
 import mongoose from 'mongoose';
-import { handleStart, handleFreeProxy, handleGiveProxy, addProxy, allNoProxy } from './commands.js';
+import {
+  handleStart,
+  handleFreeProxy,
+  handleGiveProxy,
+  addProxy,
+  allNoProxy,
+  handleAllUsers,
+} from './commands.js';
 import { handleCallback } from './callbacks.js';
 import dotenv from 'dotenv';
 
@@ -31,6 +38,9 @@ bot.onText(/\/addproxy (.+)/, (msg, match) => {
 });
 bot.onText(/\/allnoproxy (.+)/, (msg, match) => {
   allNoProxy(bot, msg, match);
+});
+bot.onText(/\/allusers (.+)/, async (msg, match) => {
+  handleAllUsers(bot, msg, match);
 });
 
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));
