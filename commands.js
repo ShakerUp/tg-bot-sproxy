@@ -3,6 +3,8 @@ import checkAuth from './db/middleware/checkAuth.js';
 import ProxyModel from './db/models/ProxyModel.js';
 import UserModel from './db/models/UserModel.js';
 
+import { differenceInHours } from 'date-fns';
+
 export function handleStart(bot, msg) {
   const chatId = msg.chat.id;
   const messageOptions = {
@@ -219,6 +221,48 @@ export async function handleAllUsers(bot, msg, match) {
     }
 
     bot.sendMessage(chatId, `Сообщение успешно отправлено ${allUsers.length} пользователям.`);
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export async function notifyUsers(bot, msg) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const result = await checkAuth(userId, 'admin');
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+
+    // Найти все занятые прокси
+    const occupiedProxies = await ProxyModel.find({ isFree: false });
+
+    const usersToNotify = [];
+
+    occupiedProxies.forEach((proxy) => {
+      const hoursRemaining = differenceInHours(new Date(proxy.expirationDate), new Date());
+
+      if (hoursRemaining < 24) {
+        usersToNotify.push({
+          userId: proxy.userTelegramId,
+          hoursRemaining,
+        });
+      }
+    });
+
+    // Отправить уведомления пользователям
+    for (const { userId, hoursRemaining } of usersToNotify) {
+      await bot.sendMessage(
+        userId,
+        `Внимание! До окончания срока вашей прокси осталось ${hoursRemaining} часов.`,
+      );
+    }
+
+    bot.sendMessage(chatId, `Оповещения успешно отправлены ${usersToNotify.length} пользователям.`);
   } catch (err) {
     console.error('Ошибка:', err.message);
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
