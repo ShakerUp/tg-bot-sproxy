@@ -98,7 +98,6 @@ export async function handleAdminUsers(bot, callbackQuery) {
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
   }
 }
-
 export async function handleAdminProxies(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
@@ -109,14 +108,26 @@ export async function handleAdminProxies(bot, callbackQuery) {
 
     if (result.permission) {
       const proxies = await ProxyModel.find().sort({ login: 1 });
+      const users = await UserModel.find({
+        telegramId: { $in: proxies.map((proxy) => proxy.userTelegramId) },
+      });
+
+      const usersMap = {};
+      users.forEach((user) => {
+        usersMap[user.telegramId] = user;
+      });
 
       let message = '<b>Все прокси:</b>';
       proxies.forEach((proxy, index) => {
-        message += `\n\n<b>Прокси ${proxy.login}: - ${
-          proxy.isFree
-            ? 'СВОБОДНО'
-            : `ЗАНЯТО ${proxy.username} ${getTimeRemaining(proxy.expirationDate)}`
-        }</b>\n`;
+        let userName = proxy.isFree
+          ? 'СВОБОДНО'
+          : `ЗАНЯТО ${
+              usersMap[proxy.userTelegramId]
+                ? usersMap[proxy.userTelegramId].username
+                : proxy.userTelegramId
+            } ${getTimeRemaining(proxy.expirationDate)}`;
+
+        message += `\n\n<b>Прокси ${proxy.login}: - ${userName}</b>\n`;
         message += `Host: ${proxy.hostIp}\n`;
         message += `Socks порт: ${proxy.socksPort}\n`;
         message += `HTTP порт: ${proxy.httpPort}\n`;
