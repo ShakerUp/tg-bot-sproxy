@@ -108,14 +108,14 @@ export async function handleAdminProxies(bot, callbackQuery) {
     const result = await checkAuth(telegramId, 'admin');
 
     if (result.permission) {
-      const proxies = await ProxyModel.find().sort({ login: 1 })
+      const proxies = await ProxyModel.find().sort({ login: 1 });
 
       let message = '<b>Все прокси:</b>';
       proxies.forEach((proxy, index) => {
         message += `\n\n<b>Прокси ${proxy.login}: - ${
           proxy.isFree
             ? 'СВОБОДНО'
-            : `ЗАНЯТО ${proxy.userTelegramId} ${getTimeRemaining(proxy.expirationDate)}`
+            : `ЗАНЯТО ${proxy.username} ${getTimeRemaining(proxy.expirationDate)}`
         }</b>\n`;
         message += `Host: ${proxy.hostIp}\n`;
         message += `Socks порт: ${proxy.socksPort}\n`;
