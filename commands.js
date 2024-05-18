@@ -258,7 +258,7 @@ export async function notifyUsers(bot, msg) {
     for (const { userId, hoursRemaining } of usersToNotify) {
       await bot.sendMessage(
         userId,
-        `Внимание! До окончания срока вашей прокси осталось ${hoursRemaining} часов.`,
+        `Напоминание! До окончания срока вашей прокси осталось ${hoursRemaining} часов.`,
       );
     }
 
