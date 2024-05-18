@@ -43,6 +43,6 @@ bot.onText(/\/allnoproxy (.+)/, (msg, match) => {
 bot.onText(/\/allusers (.+)/, async (msg, match) => {
   handleAllUsers(bot, msg, match);
 });
-bot.onText(/\/notifyusers/, (msg) => notifyUsers(bot, msg));
+bot.onText(/\/notifyusers/, async (msg) => notifyUsers(bot, msg));
 
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));
