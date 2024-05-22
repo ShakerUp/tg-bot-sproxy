@@ -12,6 +12,8 @@ export async function handleAdminPanel(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const telegramId = callbackQuery.from.id;
 
+  console.log('Новая панель.');
+
   try {
     const result = await checkAuth(telegramId, 'admin');
 
