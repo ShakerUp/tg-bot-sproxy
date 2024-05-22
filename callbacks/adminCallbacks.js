@@ -25,7 +25,7 @@ export async function handleAdminPanel(bot, callbackQuery) {
               { text: 'Прокси', callback_data: 'admin_proxies' },
             ],
             [
-              { text: 'Пополнение баланса', callback_data: 'admin_balance_top_ups' },
+              { text: 'Пополнения баланса', callback_data: 'admin_balance_top_ups' },
               // { text: 'Проверить все прокси', callback_data: 'check_all_proxies' },
               { text: '🔙 Назад', callback_data: 'login_or_register' },
             ],
