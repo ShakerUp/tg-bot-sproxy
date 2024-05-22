@@ -22,7 +22,7 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 // Підключення до бази даних MongoDB
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
+  .then(() => console.log('Connected to MongoDB ++'))
   .catch((err) => console.error('Error connecting to MongoDB:', err.message));
 
 // Обробник команди /start
@@ -46,6 +46,8 @@ bot.onText(/\/allusers (.+)/, async (msg, match) => {
 });
 bot.onText(/\/notifyusers/, async (msg) => notifyUsers(bot, msg));
 
-bot.onText(/\/updateproxypass (\S+) (\S+) (\S+)/, (msg, match) => handleUpdateProxyPass(bot, msg, match)); 
+bot.onText(/\/updateproxypass (\S+) (\S+) (\S+)/, (msg, match) =>
+  handleUpdateProxyPass(bot, msg, match),
+);
 
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));
