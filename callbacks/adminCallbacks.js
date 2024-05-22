@@ -3,6 +3,8 @@ import UserModel from '../db/models/UserModel.js';
 import ProxyModel from '../db/models/ProxyModel.js';
 import BalanceTopUpModel from '../db/models/BalanceTopUpModel.js';
 
+import testProxy from '../bot/utils/proxyCheck.js';
+
 import { formatter } from '../callbacks.js';
 import { formatAmount } from '../bot/utils/formatters.js';
 
@@ -21,9 +23,12 @@ export async function handleAdminPanel(bot, callbackQuery) {
             [
               { text: 'Пользователи', callback_data: 'admin_users' },
               { text: 'Прокси', callback_data: 'admin_proxies' },
-              { text: 'Пополнение баланса', callback_data: 'admin_balance_top_ups' },
             ],
-            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
+            [
+              { text: 'Пополнение баланса', callback_data: 'admin_balance_top_ups' },
+              // { text: 'Проверить все прокси', callback_data: 'check_all_proxies' },
+              { text: '🔙 Назад', callback_data: 'login_or_register' },
+            ],
           ],
         },
       };
@@ -43,61 +48,92 @@ export async function handleAdminPanel(bot, callbackQuery) {
   }
 }
 
+const chunkSize = 4000;
+
 export async function handleAdminUsers(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
   const telegramId = callbackQuery.from.id;
+  const data = callbackQuery.data;
 
   try {
     const result = await checkAuth(telegramId, 'admin');
 
-    if (result.permission) {
-      const userProxies = await UserModel.find();
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
 
-      let message = '';
+    const userProxies = await UserModel.find();
+    let messages = [];
+    let message = '<b>Все пользователи:</b>\n\n';
 
-      if (userProxies.length > 0) {
-        message += '<b>Все пользователи:</b>\n\n';
+    userProxies.forEach((user, index) => {
+      let userInfo = `<b>№${index + 1} | ${user.role}:</b>\n`;
+      userInfo += `<b>Имя пользователя:</b> ${user.username} / ${user.firstName} \n`;
+      userInfo += `<b>Telegram ID:</b> ${user.telegramId}\n`;
+      userInfo += `<b>Баланс:</b> ${user.balance}$\n`;
+      userInfo += `<b>Дата регистрации:</b> ${formatter.format(user.createdAt)}\n\n`;
 
-        userProxies.forEach((user, index) => {
-          message += `<b>№${index + 1} | ${user.role}:</b>\n`;
-          message += `<b>Имя пользователя:</b> ${user.username} / ${user.username} \n`;
-          message += `<b>Telegram ID:</b> ${user.telegramId}\n`;
-          message += `<b>Баланс:</b> ${user.balance}$\n`;
-          message += `<b>Дата регистрации:</b> ${formatter.format(user.createdAt)}\n\n`;
-        });
-      } else {
-        message = 'Нет зарегистрированных пользователей прокси.';
+      if ((message + userInfo).length > chunkSize) {
+        messages.push(message);
+        message = '';
       }
 
-      // Добавляем текущее время к тексту сообщения для обновления
-      message += `Последнее обновление: ${formatter.format(new Date())}`;
+      message += userInfo;
+    });
 
+    // Добавляем последнее сообщение с остатками информации и временем обновления
+    message += `Последнее обновление: ${formatter.format(new Date())}`;
+    messages.push(message);
+
+    // Отправляем только первую часть сообщения при первом вызове
+    if (data === 'admin_users') {
       const options = {
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🔄 Обновить', callback_data: 'admin_users' }],
+            [{ text: 'Далее', callback_data: 'admin_users_1' }],
             [{ text: '🔙 Назад', callback_data: 'admin_panel' }],
           ],
         },
       };
 
-      await bot.editMessageText(message, {
+      await bot.editMessageText(messages[0], {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: 'HTML',
         ...options,
       });
-    }
+    } else {
+      // Определяем текущую страницу и показываем соответствующую часть сообщения
+      const pageIndex = parseInt(data.split('_')[2], 10);
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...(pageIndex > 0
+              ? [[{ text: 'Назад', callback_data: `admin_users_${pageIndex - 1}` }]]
+              : []),
+            ...(pageIndex < messages.length - 1
+              ? [[{ text: 'Далее', callback_data: `admin_users_${pageIndex + 1}` }]]
+              : []),
+            [{ text: '🔙 Назад', callback_data: 'admin_panel' }],
+          ],
+        },
+      };
 
-    if (!result) {
-      bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+      await bot.editMessageText(messages[pageIndex], {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
     }
   } catch (err) {
     console.error('Ошибка:', err.message);
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
   }
 }
+
 export async function handleAdminProxies(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
@@ -316,3 +352,48 @@ export async function handleAdminBalanceTopUps(bot, callbackQuery) {
 //     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
 //   }
 // }
+
+export async function checkAllProxies(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const telegramId = callbackQuery.from.id;
+  const messageId = callbackQuery.message.message_id;
+
+  try {
+    const result = await checkAuth(telegramId, 'admin');
+
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+
+    const proxies = await ProxyModel.find();
+
+    let message = '';
+    if (proxies.length > 0) {
+      message += `<b>Результат проверки всех прокси:</b>\n\n`;
+      for (let i = 0; i < proxies.length; i++) {
+        const proxy = proxies[i];
+        const isWorking = await testProxy(proxy);
+        message += `Прокси ${proxy.login}: ${isWorking ? 'Работает🟢' : 'Не работает🔴'}\n`;
+      }
+    } else {
+      message = 'Нет прокси для проверки.';
+    }
+
+    // Создаем кнопки
+    const keyboard = {
+      inline_keyboard: [[{ text: 'Админ панель', callback_data: 'admin_panel' }]],
+    };
+
+    // Изменяем существующее сообщение с кнопками
+    bot.editMessageText(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: keyboard,
+      parse_mode: 'HTML',
+    });
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}

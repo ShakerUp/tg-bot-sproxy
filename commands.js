@@ -268,3 +268,35 @@ export async function notifyUsers(bot, msg) {
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
   }
 }
+
+export async function handleUpdateProxyPass(bot, msg, match) {
+  const chatId = msg.chat.id;
+  const proxyLogin = match[1];
+  const newProxyPassword = match[2];
+  const newChangeIpUrl = match[3]; // Новый параметр для ссылки на смену IP
+
+  try {
+    const result = await checkAuth(msg.from.id, 'admin');
+
+    if (result.permission) {
+      const proxy = await ProxyModel.findOne({ login: proxyLogin });
+
+      if (!proxy) {
+        bot.sendMessage(chatId, 'Прокси с таким логином не найден.');
+        return;
+      }
+
+      // Обновляем пароль и ссылку для смены IP прокси
+      proxy.password = newProxyPassword;
+      proxy.changeIpUrl = newChangeIpUrl; // Обновляем ссылку для смены IP
+      await proxy.save();
+
+      bot.sendMessage(chatId, `Пароль для прокси ${proxyLogin} и ссылка для смены IP обновлены.`);
+    } else {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+    }
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}

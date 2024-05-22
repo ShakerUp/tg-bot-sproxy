@@ -8,6 +8,7 @@ import {
   allNoProxy,
   handleAllUsers,
   notifyUsers,
+  handleUpdateProxyPass,
 } from './commands.js';
 import { handleCallback } from './callbacks.js';
 import dotenv from 'dotenv';
@@ -44,5 +45,7 @@ bot.onText(/\/allusers (.+)/, async (msg, match) => {
   handleAllUsers(bot, msg, match);
 });
 bot.onText(/\/notifyusers/, async (msg) => notifyUsers(bot, msg));
+
+bot.onText(/\/updateproxypass (\S+) (\S+) (\S+)/, (msg, match) => handleUpdateProxyPass(bot, msg, match)); 
 
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));

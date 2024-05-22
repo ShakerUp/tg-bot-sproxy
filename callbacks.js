@@ -6,6 +6,7 @@ import {
   handleAdminUsers,
   handleAdminProxies,
   handleAdminBalanceTopUps,
+  checkAllProxies
 } from './callbacks/adminCallbacks.js';
 import {
   handleMyProxies,
@@ -41,6 +42,7 @@ const actionHandlers = {
   rent_30_days: handleRentProxy,
   admin_balance_top_ups: handleAdminBalanceTopUps,
   documents: handleDocuments,
+  check_all_proxies: checkAllProxies,
 };
 
 const userAgreementURL =
@@ -68,6 +70,8 @@ export async function handleCallback(bot, callbackQuery) {
 
   if (handler) {
     await handler(bot, callbackQuery);
+  } else if (action.startsWith('admin_users_')) {
+    await handleAdminUsers(bot, callbackQuery);
   } else {
     console.error('Неверное действие:', action);
   }
