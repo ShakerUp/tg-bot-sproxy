@@ -6,7 +6,8 @@ import {
   handleAdminUsers,
   handleAdminProxies,
   handleAdminBalanceTopUps,
-  checkAllProxies
+  checkAllProxies,
+  handleViewAllTransactions,
 } from './callbacks/adminCallbacks.js';
 import {
   handleMyProxies,
@@ -43,6 +44,7 @@ const actionHandlers = {
   admin_balance_top_ups: handleAdminBalanceTopUps,
   documents: handleDocuments,
   check_all_proxies: checkAllProxies,
+  admin_transactions: handleViewAllTransactions, // Добавляем новую функцию
 };
 
 const userAgreementURL =

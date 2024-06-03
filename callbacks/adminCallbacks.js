@@ -3,6 +3,10 @@ import UserModel from '../db/models/UserModel.js';
 import ProxyModel from '../db/models/ProxyModel.js';
 import BalanceTopUpModel from '../db/models/BalanceTopUpModel.js';
 
+import { getTransactionsByTelegramId } from '../createTransaction.js';
+
+import TransactionModel from '../db/models/TransactionModel.js';
+
 import testProxy from '../bot/utils/proxyCheck.js';
 
 import { formatter } from '../callbacks.js';
@@ -11,8 +15,6 @@ import { formatAmount } from '../bot/utils/formatters.js';
 export async function handleAdminPanel(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const telegramId = callbackQuery.from.id;
-
-  console.log('Новая панель.');
 
   try {
     const result = await checkAuth(telegramId, 'admin');
@@ -28,9 +30,9 @@ export async function handleAdminPanel(bot, callbackQuery) {
             ],
             [
               { text: 'Пополнения баланса', callback_data: 'admin_balance_top_ups' },
-              // { text: 'Проверить все прокси', callback_data: 'check_all_proxies' },
-              { text: '🔙 Назад', callback_data: 'login_or_register' },
+              { text: 'Просмотр всех транзакций', callback_data: 'admin_transactions' },
             ],
+            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
           ],
         },
       };
@@ -394,6 +396,60 @@ export async function checkAllProxies(bot, callbackQuery) {
       reply_markup: keyboard,
       parse_mode: 'HTML',
     });
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export async function handleViewAllTransactions(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const messageId = callbackQuery.message.message_id;
+  const telegramId = callbackQuery.from.id;
+
+  try {
+    const result = await checkAuth(telegramId, 'admin');
+
+    if (result.permission) {
+      const transactions = await TransactionModel.find().populate('userId').sort({ createdAt: 1 });
+
+      await getTransactionsByTelegramId(transactions);
+
+      let message = '';
+
+      if (transactions.length > 0) {
+        message += '<b>История транзакций:</b>\n\n';
+        transactions.forEach((transaction, index) => {
+          const date = formatter.format(new Date(transaction.createdAt));
+          const username = transaction.userId.username || 'Имя не указано';
+          message += `<b><a href="${transaction.pageUrl}">Транзакция №${index + 1} | ${
+            transaction.invoiceId
+          }</a></b>\nПользователь: ${username}\nСумма: ${transaction.amount}; Статус: ${
+            transaction.status
+          }; ${date}\n\n`;
+        });
+      } else {
+        message += 'Транзакции отсутствуют.\n';
+      }
+
+      const options = {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Обновить', callback_data: 'admin_transactions' }],
+            [{ text: '🔙 Назад', callback_data: 'admin_panel' }],
+          ],
+        },
+        parse_mode: 'HTML',
+      };
+
+      await bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
+    } else {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+    }
   } catch (err) {
     console.error('Ошибка:', err.message);
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
