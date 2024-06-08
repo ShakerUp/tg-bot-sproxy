@@ -142,60 +142,101 @@ export async function handleAdminProxies(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
   const telegramId = callbackQuery.from.id;
+  const data = callbackQuery.data;
 
   try {
     const result = await checkAuth(telegramId, 'admin');
 
-    if (result.permission) {
-      const proxies = await ProxyModel.find().sort({ login: 1 });
-      const users = await UserModel.find({
-        telegramId: { $in: proxies.map((proxy) => proxy.userTelegramId) },
-      });
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
 
-      const usersMap = {};
-      users.forEach((user) => {
-        usersMap[user.telegramId] = user;
-      });
+    const proxies = await ProxyModel.find().sort({ login: 1 });
+    const users = await UserModel.find({
+      telegramId: { $in: proxies.map((proxy) => proxy.userTelegramId) },
+    });
 
-      let message = '<b>Все прокси:</b>';
-      proxies.forEach((proxy, index) => {
-        let userName = proxy.isFree
-          ? 'СВОБОДНО'
-          : `ЗАНЯТО ${
-              usersMap[proxy.userTelegramId]
-                ? usersMap[proxy.userTelegramId].username
-                : proxy.userTelegramId
-            } ${getTimeRemaining(proxy.expirationDate)}`;
+    const usersMap = {};
+    users.forEach((user) => {
+      usersMap[user.telegramId] = user;
+    });
 
-        message += `\n\n<b>Прокси ${proxy.login}: - ${userName}</b>\n`;
-        message += `Host: ${proxy.hostIp}\n`;
-        message += `Socks порт: ${proxy.socksPort}\n`;
-        message += `HTTP порт: ${proxy.httpPort}\n`;
-        message += `Логин: ${proxy.login}\n`;
-        message += `Пароль: ${proxy.password}\n`;
-        message += `Ссылка для смены IP: <code>${proxy.changeIpUrl}</code>\n`;
-        proxy.expirationDate
-          ? (message += `Дата окончания: ${formatter.format(proxy.expirationDate)}`)
-          : ``;
-      });
+    let messages = [];
+    let message = '<b>Все прокси:</b>\n\n';
 
+    proxies.forEach((proxy, index) => {
+      let userName = proxy.isFree
+        ? 'СВОБОДНО'
+        : `ЗАНЯТО ${
+            usersMap[proxy.userTelegramId]
+              ? usersMap[proxy.userTelegramId].username
+              : proxy.userTelegramId
+          } ${getTimeRemaining(proxy.expirationDate)}`;
+
+      let proxyInfo = `\n<b>Прокси ${proxy.login} - ${userName}</b>\n`;
+      proxyInfo += `Host: ${proxy.hostIp}\n`;
+      proxyInfo += `Socks порт: ${proxy.socksPort}\n`;
+      proxyInfo += `HTTP порт: ${proxy.httpPort}\n`;
+      proxyInfo += `Логин: ${proxy.login}\n`;
+      proxyInfo += `Пароль: ${proxy.password}\n`;
+      proxyInfo += `Ссылка для смены IP: <code>${proxy.changeIpUrl}</code>\n`;
+      proxyInfo += proxy.expirationDate
+        ? `Дата окончания: ${formatter.format(proxy.expirationDate)}\n`
+        : ``;
+
+      if ((message + proxyInfo).length > chunkSize) {
+        messages.push(message);
+        message = '';
+      }
+
+      message += proxyInfo;
+    });
+
+    // Добавляем последнее сообщение с остатками информации и временем обновления
+    message += `Последнее обновление: ${formatter.format(new Date())}`;
+    messages.push(message);
+
+    // Отправляем только первую часть сообщения при первом вызове
+    if (data === 'admin_proxies') {
       const options = {
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: 'Выдать прокси', callback_data: 'admin_assign_proxy' }],
+            [{ text: 'Далее', callback_data: 'admin_proxies_1' }],
             [{ text: '🔙 Назад', callback_data: 'admin_panel' }],
           ],
         },
       };
 
-      await bot.editMessageText(message, {
+      await bot.editMessageText(messages[0], {
         chat_id: chatId,
         message_id: messageId,
         ...options,
       });
     } else {
-      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      // Определяем текущую страницу и показываем соответствующую часть сообщения
+      const pageIndex = parseInt(data.split('_')[2], 10);
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...(pageIndex > 0
+              ? [[{ text: 'Назад', callback_data: `admin_proxies_${pageIndex - 1}` }]]
+              : []),
+            ...(pageIndex < messages.length - 1
+              ? [[{ text: 'Далее', callback_data: `admin_proxies_${pageIndex + 1}` }]]
+              : []),
+            [{ text: '🔙 Назад', callback_data: 'admin_panel' }],
+          ],
+        },
+      };
+
+      await bot.editMessageText(messages[pageIndex], {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
     }
   } catch (err) {
     console.error('Ошибка:', err.message);

@@ -74,6 +74,8 @@ export async function handleCallback(bot, callbackQuery) {
     await handler(bot, callbackQuery);
   } else if (action.startsWith('admin_users_')) {
     await handleAdminUsers(bot, callbackQuery);
+  } else if (action.startsWith('admin_proxies_')) {
+    await handleAdminProxies(bot, callbackQuery);
   } else {
     console.error('Неверное действие:', action);
   }
