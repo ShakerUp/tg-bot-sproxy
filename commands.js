@@ -227,6 +227,36 @@ export async function handleAllUsers(bot, msg, match) {
   }
 }
 
+export async function allWithProxy(bot, msg, match) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const messageText = match[1];
+
+  try {
+    const result = await checkAuth(userId, 'admin');
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+    // Найти всех пользователей, у которых есть прокси
+    const usedProxies = await ProxyModel.find({ isFree: false }).distinct('userTelegramId');
+
+    const usersWithProxy = await UserModel.find({ telegramId: { $in: usedProxies } });
+
+    for (const user of usersWithProxy) {
+      bot.sendMessage(user.chatId, messageText);
+    }
+
+    bot.sendMessage(
+      chatId,
+      `Сообщение успешно отправлено ${usersWithProxy.length} пользователям с прокси.`,
+    );
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
 export async function notifyUsers(bot, msg) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;

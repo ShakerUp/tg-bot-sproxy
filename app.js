@@ -9,6 +9,7 @@ import {
   handleAllUsers,
   notifyUsers,
   handleUpdateProxyPass,
+  allWithProxy,
 } from './commands.js';
 import { handleCallback } from './callbacks.js';
 import dotenv from 'dotenv';
@@ -40,6 +41,9 @@ bot.onText(/\/addproxy (.+)/, (msg, match) => {
 });
 bot.onText(/\/allnoproxy (.+)/, (msg, match) => {
   allNoProxy(bot, msg, match);
+});
+bot.onText(/\/allproxy (.+)/, (msg, match) => {
+  allWithProxy(bot, msg, match);
 });
 bot.onText(/\/allusers (.+)/, async (msg, match) => {
   handleAllUsers(bot, msg, match);
