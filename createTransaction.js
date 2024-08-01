@@ -123,7 +123,7 @@ export const updateTransactionStatus = async (invoiceId) => {
     return transaction;
   } catch (error) {
     console.log(error);
-    console.error('Ошибка при обновлении статуса транзакции:', error.message);
+    console.error('Ошибка при обновлении статуса транзакции:', invoiceId);
     throw new Error('Ошибка при обновлении статуса транзакции');
   }
 };
