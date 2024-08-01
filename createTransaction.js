@@ -58,17 +58,17 @@ export const createTransaction = async (
   }
 };
 
-const apiUrl = 'https://api.monobank.ua/api/merchant/invoice/status';
-
 const fetchTransactionStatus = async (invoiceId) => {
   try {
-    const response = await axios.get(apiUrl, {
-      headers: {
-        'x-token': process.env.MONOBANK_API_TOKEN,
-        'Content-Type': 'application/json',
+    const response = await axios.get(
+      `https://api.monobank.ua/api/merchant/invoice/status?invoiceId=${invoiceId}`,
+      {
+        headers: {
+          'x-token': process.env.MONOBANK_API_TOKEN,
+          'Content-Type': 'application/json',
+        },
       },
-      params: { invoiceId },
-    });
+    );
     return response.data;
   } catch (error) {
     console.error('Ошибка при запросе статуса транзакции:', invoiceId, error.message);
