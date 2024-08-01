@@ -28,6 +28,8 @@ export const createTransaction = async (
       },
     });
 
+    console.log(response.data);
+
     if (response.status === 200) {
       // Создаем новую транзакцию
       const transaction = await TransactionModel.create({
@@ -88,7 +90,6 @@ export const updateTransactionStatus = async (invoiceId) => {
             { $inc: { balance: transaction.amount / 100 } },
             { new: true },
           );
-
 
           // Проверка наличия реферального кода
           if (updatedUser.refCode) {
