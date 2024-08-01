@@ -42,13 +42,10 @@ export const createTransaction = async (
         pageUrl: response.data.pageUrl,
       });
 
-      if (response.status === 403) {
-        console.log(response.data);
-      }
-
       return transaction;
     } else {
       // Если ответ не 200, бросаем ошибку
+      console.log(response.data);
       throw new Error('Ошибка при создании транзакции');
     }
   } catch (error) {
