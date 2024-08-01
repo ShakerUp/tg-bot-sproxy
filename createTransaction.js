@@ -43,6 +43,10 @@ export const createTransaction = async (
       });
 
       return transaction;
+    }
+    if (response.status === 403) {
+      // Создаем новую транзакцию
+      console.log(response.data);
     } else {
       // Если ответ не 200, бросаем ошибку
       console.log(response.data);
