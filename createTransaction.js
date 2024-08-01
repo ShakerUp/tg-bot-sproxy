@@ -58,108 +58,130 @@ export const createTransaction = async (
   }
 };
 
-export const updateTransactionStatus = async (invoiceId) => {
+const apiUrl = 'https://api.monobank.ua/api/merchant/invoice/status';
+
+const fetchTransactionStatus = async (invoiceId) => {
   try {
-    const apiUrl = `https://api.monobank.ua/api/merchant/invoice/status?invoiceId=${invoiceId}`;
     const response = await axios.get(apiUrl, {
       headers: {
         'x-token': process.env.MONOBANK_API_TOKEN,
         'Content-Type': 'application/json',
       },
+      params: { invoiceId },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Ошибка при запросе статуса транзакции:', invoiceId, error.message);
+    throw new Error('Ошибка при запросе статуса транзакции');
+  }
+};
+
+const updateTransactionStatus = async (invoiceId) => {
+  try {
+    // Получаем текущий статус транзакции из базы данных
+    const transaction = await TransactionModel.findOne({ invoiceId });
+    if (!transaction) {
+      throw new Error('Транзакция не найдена в базе данных');
+    }
+
+    // Пропускаем запрос, если статус уже expired
+    if (transaction.status === 'expired') {
+      console.log(`Транзакция ${invoiceId} уже имеет статус expired. Запрос не требуется.`);
+      return transaction;
+    }
+
+    // Запрашиваем новый статус
+    const statusData = await fetchTransactionStatus(invoiceId);
+
+    // Обновляем статус транзакции в базе данных
+    const updatedTransaction = await TransactionModel.findOneAndUpdate(
+      { invoiceId },
+      { $set: { status: statusData.status, updatedAt: new Date() } },
+      { new: true },
+    );
+
+    if (!updatedTransaction) {
+      throw new Error('Транзакция не найдена после обновления');
+    }
+
+    if (updatedTransaction.status === 'success') {
+      await handleSuccessTransaction(updatedTransaction);
+    } else if (updatedTransaction.status === 'reversed') {
+      await handleReversedTransaction(updatedTransaction);
+    }
+
+    return updatedTransaction;
+  } catch (error) {
+    console.error('Ошибка при обновлении статуса транзакции:', invoiceId, error.message);
+    throw new Error('Ошибка при обновлении статуса транзакции');
+  }
+};
+
+const handleSuccessTransaction = async (transaction) => {
+  try {
+    const existingTopUp = await BalanceTopUpModel.findOne({ transactionId: transaction._id });
+
+    if (!existingTopUp) {
+      const updatedUser = await UserModel.findByIdAndUpdate(
+        transaction.userId,
+        { $inc: { balance: transaction.amount / 100 } },
+        { new: true },
+      );
+
+      if (updatedUser.refCode) {
+        const referrer = await UserModel.findOne({ telegramId: updatedUser.refCode });
+        if (referrer) {
+          const referralBonus = (transaction.amount / 100) * 0.1; // 10% бонус
+          await UserModel.findByIdAndUpdate(
+            referrer._id,
+            { $inc: { balance: referralBonus, refEarnings: referralBonus } },
+            { new: true },
+          );
+        }
+      }
+
+      await BalanceTopUpModel.create({
+        userId: transaction.userId,
+        transactionId: transaction._id,
+        amount: transaction.amount,
+        currency: transaction.currency,
+        refCode: updatedUser.refCode || null,
+      });
+
+      console.log('Balance top-up created for user:', transaction.userId);
+    }
+  } catch (error) {
+    console.error('Ошибка при обработке успешной транзакции:', error.message);
+    throw new Error('Ошибка при обработке успешной транзакции');
+  }
+};
+
+const handleReversedTransaction = async (transaction) => {
+  try {
+    const existingTopUp = await BalanceTopUpModel.findOneAndDelete({
+      transactionId: transaction._id,
     });
 
-    console.log(process.env.MONOBANK_API_TOKEN);
-
-    let transaction;
-    try {
-      transaction = await TransactionModel.findOneAndUpdate(
-        { invoiceId },
-        { $set: { status: response.data.status, updatedAt: new Date() } },
-        { new: true }, // Возвращает обновленный объект
+    if (existingTopUp) {
+      await UserModel.findByIdAndUpdate(
+        transaction.userId,
+        { $inc: { balance: -existingTopUp.amount / 100 } },
+        { new: true },
       );
-    } catch (error) {
-      console.error('Ошибка при обновлении транзакции:', error.message);
-      throw new Error('Ошибка при обновлении транзакции в базе данных');
     }
-
-    if (!transaction) {
-      throw new Error('Транзакция не найдена');
-    }
-
-    if (transaction.status === 'success') {
-      try {
-        const existingTopUp = await BalanceTopUpModel.findOne({ transactionId: transaction._id });
-        if (!existingTopUp) {
-          const updatedUser = await UserModel.findByIdAndUpdate(
-            transaction.userId,
-            { $inc: { balance: transaction.amount / 100 } },
-            { new: true },
-          );
-
-          // Проверка наличия реферального кода
-          if (updatedUser.refCode) {
-            const referrer = await UserModel.findOne({ telegramId: updatedUser.refCode });
-
-            if (referrer) {
-              const referralBonus = (transaction.amount / 100) * 0.1; // 10% бонус
-
-              // Обновление баланса реферала
-              await UserModel.findByIdAndUpdate(
-                referrer._id,
-                { $inc: { balance: referralBonus, refEarnings: referralBonus } },
-                { new: true },
-              );
-            }
-          }
-
-          await BalanceTopUpModel.create({
-            userId: transaction.userId,
-            transactionId: transaction._id,
-            amount: transaction.amount,
-            currency: transaction.currency,
-            refCode: updatedUser.refCode || null, // Сохранение реферального кода
-          });
-
-          console.log('Balance top-up created for user:', transaction.userId);
-        }
-      } catch (error) {
-        console.error('Ошибка при обновлении баланса или создании топ-апа:', error.message);
-        throw new Error('Ошибка при обновлении баланса или создании топ-апа');
-      }
-    } else if (transaction.status === 'reversed') {
-      try {
-        // Если транзакция отменена, удаляем запись о пополнении баланса
-        const existingTopUp = await BalanceTopUpModel.findOneAndDelete({
-          transactionId: transaction._id,
-        });
-
-        if (existingTopUp) {
-          const updatedUser = await UserModel.findByIdAndUpdate(
-            transaction.userId,
-            { $inc: { balance: -existingTopUp.amount / 100 } },
-            { new: true },
-          );
-        }
-      } catch (error) {
-        console.error('Ошибка при отмене топ-апа:', error.message);
-        throw new Error('Ошибка при отмене топ-апа');
-      }
-    }
-
-    return transaction;
   } catch (error) {
-    console.error('Ошибка при обновлении статуса транзакции:', invoiceId);
-    console.error('Ошибка:', error.message);
-    throw new Error('Ошибка при обновлении статуса транзакции');
+    console.error('Ошибка при отмене топ-апа:', error.message);
+    throw new Error('Ошибка при отмене топ-апа');
   }
 };
 
 export const getTransactionsByTelegramId = async (transactions) => {
   try {
-    const updatePromises = transactions
+    const invoiceIds = transactions
       .filter((transaction) => ['created', 'success', 'reversed'].includes(transaction.status))
-      .map((transaction) => updateTransactionStatus(transaction.invoiceId));
+      .map((transaction) => transaction.invoiceId);
 
+    const updatePromises = invoiceIds.map((invoiceId) => updateTransactionStatus(invoiceId));
     await Promise.all(updatePromises);
 
     return transactions;
