@@ -28,8 +28,6 @@ export const createTransaction = async (
       },
     });
 
-    console.log(response.data);
-
     if (response.status === 200) {
       // Создаем новую транзакцию
       const transaction = await TransactionModel.create({
@@ -43,6 +41,10 @@ export const createTransaction = async (
         invoiceId: response.data.invoiceId,
         pageUrl: response.data.pageUrl,
       });
+
+      if (response.status === 403) {
+        console.log(response.data);
+      }
 
       return transaction;
     } else {
