@@ -24,7 +24,7 @@ export const createTransaction = async (
 
     const response = await axios.post(apiUrl, requestBody, {
       headers: {
-        'x-token': process.env.MONOBANK_API_TOKEN,
+        'X-Token': process.env.MONOBANK_API_TOKEN,
       },
     });
 
@@ -64,7 +64,7 @@ const fetchTransactionStatus = async (invoiceId) => {
       `https://api.monobank.ua/api/merchant/invoice/status?invoiceId=${invoiceId}`,
       {
         headers: {
-          'x-token': process.env.MONOBANK_API_TOKEN,
+          'X-Token': process.env.MONOBANK_API_TOKEN,
           'Content-Type': 'application/json',
         },
       },
