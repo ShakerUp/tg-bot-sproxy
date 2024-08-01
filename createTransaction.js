@@ -65,6 +65,8 @@ export const updateTransactionStatus = async (invoiceId) => {
       },
     });
 
+    console.log(process.env.MONOBANK_API_TOKEN);
+
     let transaction;
     try {
       transaction = await TransactionModel.findOneAndUpdate(
