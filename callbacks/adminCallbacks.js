@@ -77,6 +77,9 @@ export async function handleAdminUsers(bot, callbackQuery) {
       userInfo += `<b>Имя пользователя:</b> ${user.username} / ${user.firstName} \n`;
       userInfo += `<b>Telegram ID:</b> ${user.telegramId}\n`;
       userInfo += `<b>Баланс:</b> ${user.balance}$\n`;
+      userInfo += `<b>Реф-код:</b> ${
+        user.refCode ? `${user.refCode} | +${user.refEarnings}$` : '-'
+      }\n`;
       userInfo += `<b>Дата регистрации:</b> ${formatter.format(user.createdAt)}\n\n`;
 
       if ((message + userInfo).length > chunkSize) {
@@ -175,12 +178,12 @@ export async function handleAdminProxies(bot, callbackQuery) {
           } ${getTimeRemaining(proxy.expirationDate)}`;
 
       let proxyInfo = `\n<b>Прокси ${proxy.login} - ${userName}</b>\n`;
-      proxyInfo += `Host: ${proxy.hostIp}\n`;
-      proxyInfo += `Socks порт: ${proxy.socksPort}\n`;
-      proxyInfo += `HTTP порт: ${proxy.httpPort}\n`;
-      proxyInfo += `Логин: ${proxy.login}\n`;
-      proxyInfo += `Пароль: ${proxy.password}\n`;
-      proxyInfo += `Ссылка для смены IP: <code>${proxy.changeIpUrl}</code>\n`;
+      proxyInfo += `<b>Host:</b> <code>${proxy.hostIp}</code>\n`;
+      proxyInfo += `<b>Socks порт:</b> <code>${proxy.socksPort}</code>\n`;
+      proxyInfo += `<b>HTTP порт:</b><code> ${proxy.httpPort}</code>\n`;
+      proxyInfo += `<b>Логин:</b> <code>${proxy.login}</code>\n`;
+      proxyInfo += `<b>Пароль:</b> <code>${proxy.password}</code>\n`;
+      proxyInfo += `<b>Ссылка для смены IP:</b> <code>${proxy.changeIpUrl}</code>\n`;
       proxyInfo += proxy.expirationDate
         ? `Дата окончания: ${formatter.format(proxy.expirationDate)}\n`
         : ``;
@@ -194,7 +197,7 @@ export async function handleAdminProxies(bot, callbackQuery) {
     });
 
     // Добавляем последнее сообщение с остатками информации и временем обновления
-    message += `Последнее обновление: ${formatter.format(new Date())}`;
+    message += `\nПоследнее обновление: ${formatter.format(new Date())}`;
     messages.push(message);
 
     // Отправляем только первую часть сообщения при первом вызове
@@ -246,14 +249,25 @@ export async function handleAdminProxies(bot, callbackQuery) {
 
 function getTimeRemaining(expirationDate) {
   if (!expirationDate) return '';
+
   const now = new Date();
   const diff = expirationDate - now;
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  if (days > 0) {
-    return `${days} дн. ${hours} час.`;
+
+  const days = Math.floor(Math.abs(diff) / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((Math.abs(diff) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+  if (diff >= 0) {
+    if (days > 0) {
+      return `${days} дн. ${hours} час.`;
+    } else {
+      return `${hours} час.`;
+    }
   } else {
-    return `${hours} час.`;
+    if (days > 0) {
+      return `-${days} дн. ${hours} час.`;
+    } else {
+      return `-${hours} час.`;
+    }
   }
 }
 
@@ -284,10 +298,15 @@ export async function handleAdminBalanceTopUps(bot, callbackQuery) {
 
       let message = 'Список пополнений баланса:\n\n';
       transactions.forEach((transaction, index) => {
-        message += `№${index + 1}\n`;
-        message += `Пользователь: ${transaction.userId.username}\n`;
-        message += `Сумма: ${formatAmount(transaction.amount)}\n`;
-        message += `Дата: ${transaction.createdAt}\n\n`;
+        message += `<b>№: ${index + 1}</b>\n`;
+        message += `<b>Пользователь:</b> ${transaction.userId.username}\n`;
+        message += `<b>Сумма:</b> ${formatAmount(transaction.amount)}\n`;
+        transaction.refCode
+          ? (message += `<b>Реферал:</b> +${formatAmount(transaction.amount / 10)} ${
+              transaction.refCode
+            } \n`)
+          : ``;
+        message += `<b>Дата:</b> ${transaction.createdAt}\n\n`;
       });
 
       const options = {
@@ -447,49 +466,84 @@ export async function handleViewAllTransactions(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
   const telegramId = callbackQuery.from.id;
+  const data = callbackQuery.data;
 
   try {
     const result = await checkAuth(telegramId, 'admin');
 
-    if (result.permission) {
-      const transactions = await TransactionModel.find().populate('userId').sort({ createdAt: 1 });
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
 
-      await getTransactionsByTelegramId(transactions);
+    const transactions = await TransactionModel.find().populate('userId').sort({ createdAt: -1 });
 
-      let message = '';
+    await getTransactionsByTelegramId(transactions);
 
-      if (transactions.length > 0) {
-        message += '<b>История транзакций:</b>\n\n';
-        transactions.forEach((transaction, index) => {
-          const date = formatter.format(new Date(transaction.createdAt));
-          const username = transaction.userId.username || 'Имя не указано';
-          message += `<b><a href="${transaction.pageUrl}">Транзакция №${index + 1} | ${
-            transaction.invoiceId
-          }</a></b>\nПользователь: ${username}\nСумма: ${transaction.amount}; Статус: ${
-            transaction.status
-          }; ${date}\n\n`;
-        });
-      } else {
-        message += 'Транзакции отсутствуют.\n';
+    let messages = [];
+    let message = '<b>История транзакций:</b>\n\n';
+
+    transactions.forEach((transaction, index) => {
+      const date = formatter.format(new Date(transaction.createdAt));
+      const username = transaction.userId.username || 'Имя не указано';
+      let transactionInfo = `<b><a href="${transaction.pageUrl}">Транзакция №${index + 1} | ${
+        transaction.invoiceId
+      }</a></b>\nПользователь: ${username}\nСумма: ${transaction.amount}; Статус: ${
+        transaction.status
+      }; ${date}\n\n`;
+
+      if ((message + transactionInfo).length > chunkSize) {
+        messages.push(message);
+        message = '';
       }
 
+      message += transactionInfo;
+    });
+
+    if (message) {
+      messages.push(message);
+    }
+
+    // Отправляем только первую часть сообщения при первом вызове
+    if (data === 'admin_transactions') {
       const options = {
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🔄 Обновить', callback_data: 'admin_transactions' }],
+            [{ text: 'Далее', callback_data: 'admin_transactions_1' }],
             [{ text: '🔙 Назад', callback_data: 'admin_panel' }],
           ],
         },
-        parse_mode: 'HTML',
       };
 
-      await bot.editMessageText(message, {
+      await bot.editMessageText(messages[0], {
         chat_id: chatId,
         message_id: messageId,
         ...options,
       });
     } else {
-      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      // Определяем текущую страницу и показываем соответствующую часть сообщения
+      const pageIndex = parseInt(data.split('_')[2], 10);
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...(pageIndex > 0
+              ? [[{ text: 'Назад', callback_data: `admin_transactions_${pageIndex - 1}` }]]
+              : []),
+            ...(pageIndex < messages.length - 1
+              ? [[{ text: 'Далее', callback_data: `admin_transactions_${pageIndex + 1}` }]]
+              : []),
+            [{ text: '🔙 Назад', callback_data: 'admin_panel' }],
+          ],
+        },
+      };
+
+      await bot.editMessageText(messages[pageIndex], {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
     }
   } catch (err) {
     console.error('Ошибка:', err.message);

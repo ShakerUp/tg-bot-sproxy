@@ -21,6 +21,10 @@ const balanceTopUpSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    refCode: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true },
 );

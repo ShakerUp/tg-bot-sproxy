@@ -11,16 +11,14 @@ import {
 } from './callbacks/adminCallbacks.js';
 import {
   handleMyProxies,
-  checkProxy,
   handleBuyProxies,
   handleRentProxy,
 } from './callbacks/proxiesCallbacks.js';
 import {
   handleMyBalance,
   handleTopupBalance,
-  handleTopupBalance8,
-  handleTopupBalance25,
-  handleTopupBalance1,
+  handleTopupBalanceGeneric,
+  handleTopupCustom,
 } from './callbacks/balanceCallbacks.js';
 
 const actionHandlers = {
@@ -29,15 +27,11 @@ const actionHandlers = {
   decline: handleDecline,
   back: handleBack,
   my_proxies: handleMyProxies,
-  check_proxy: checkProxy,
   admin_panel: handleAdminPanel,
   admin_users: handleAdminUsers,
   admin_proxies: handleAdminProxies,
   my_balance: handleMyBalance,
   topup_balance: handleTopupBalance,
-  topup_8: handleTopupBalance8,
-  topup_25: handleTopupBalance25,
-  topup_1: handleTopupBalance1,
   buy_proxies: handleBuyProxies,
   rent_7_days: handleRentProxy,
   rent_30_days: handleRentProxy,
@@ -45,6 +39,8 @@ const actionHandlers = {
   documents: handleDocuments,
   check_all_proxies: checkAllProxies,
   admin_transactions: handleViewAllTransactions, // Добавляем новую функцию
+  referral_system: handleReferral,
+  topup_custom: handleTopupCustom,
 };
 
 const userAgreementURL =
@@ -76,6 +72,16 @@ export async function handleCallback(bot, callbackQuery) {
     await handleAdminUsers(bot, callbackQuery);
   } else if (action.startsWith('admin_proxies_')) {
     await handleAdminProxies(bot, callbackQuery);
+  } else if (action.startsWith('admin_transactions_')) {
+    await handleViewAllTransactions(bot, callbackQuery);
+  } else if (action === 'enter_referral_code') {
+    await handleReferralCodeEntry(bot, callbackQuery);
+  } else if (action === 'referral_system') {
+    await handleReferral(bot, callbackQuery);
+  } else if (action.startsWith('topup_')) {
+    await handleTopupBalanceGeneric(bot, callbackQuery); // Универсальный обработчик
+  } else if (callbackData === 'topup_custom') {
+    await handleTopupCustom(bot, callbackQuery);
   } else {
     console.error('Неверное действие:', action);
   }
@@ -90,9 +96,9 @@ async function handleUser(bot, callbackQuery) {
     const user = await UserModel.findOne({ telegramId });
 
     if (user) {
-      const profileMessage = `<b>Профиль пользователя:</b>\n\n<b>ID:</b> ${
+      const profileMessage = `<b>Профиль пользователя:</b>\n\n<b>ID:</b> <code>${
         user.telegramId
-      }\n<b>Ваше имя:</b> ${firstName}\n<b>Баланс:</b> ${
+      }</code>\n<b>Ваше имя:</b> ${firstName}\n<b>Баланс:</b> ${
         user.balance
       }$\n<b>Дата регистрации:</b> ${formatter.format(user.createdAt)}`;
       const profileOptions = {
@@ -105,7 +111,7 @@ async function handleUser(bot, callbackQuery) {
             ],
             [
               { text: '📋 Документы', callback_data: 'documents' },
-              { text: '🔙 Назад', callback_data: 'back' },
+              { text: '🚀 Реферальная система', callback_data: 'referral_system' },
             ],
             user.role === 'admin'
               ? [{ text: '🛠️ Админ панель', callback_data: 'admin_panel' }]
@@ -154,7 +160,7 @@ async function handleDocuments(bot, callbackQuery) {
         [{ text: 'Пользовательское соглашение', url: userAgreementURL }],
         [{ text: 'Политика конфиденциальности', url: privacyPolicyURL }],
         [{ text: 'Политика безопасности', url: securityPolicyURL }],
-        [{ text: '🔙 Назад', callback_data: 'back' }],
+        [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
       ],
     },
   };
@@ -220,4 +226,128 @@ async function handleBack(bot, callbackQuery) {
     message_id: callbackQuery.message.message_id,
     ...welcomeOptions,
   });
+}
+
+// Для хранения состояния ожидания, используйте объект (или базу данных для хранения сессий)
+const waitingForReferralCode = new Set();
+const referralInputHandlers = {};
+
+export async function handleReferral(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const telegramId = callbackQuery.from.id;
+
+  // Удаляем состояние ожидания и обработчик для реферального кода
+  waitingForReferralCode.delete(chatId);
+  if (referralInputHandlers[chatId]) {
+    bot.removeListener('message', referralInputHandlers[chatId]);
+    delete referralInputHandlers[chatId];
+  }
+
+  try {
+    const user = await UserModel.findOne({ telegramId });
+
+    if (user) {
+      const referralCount = await UserModel.countDocuments({ refCode: user.telegramId });
+      const referralEarnings = user.refEarnings || 0;
+
+      let message = `<b>Реферальная система:</b>\n\n`;
+      message += `<b>👋 Вы получаете 10% от пополнений ваших рефералов</b>\n\n`;
+      message += `<b>🌐 Ваш реферальный код:</b> <code>${user.telegramId}</code>\n`;
+      message += `<b>👨‍👩‍👦‍👦 Кол-во рефералов:</b> ${referralCount}\n`;
+      message += `<b>💵 Заработок с реферальной системы: </b> ${referralEarnings}$\n`;
+
+      user.refCode ? (message += `\n <b>✅ Вы являетесь рефералом</b> ${user.refCode}`) : '';
+
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            user.refCode
+              ? [{ text: '🔙 Назад', callback_data: 'login_or_register' }]
+              : [
+                  { text: '✍🏻 Ввести реферальный код', callback_data: 'enter_referral_code' },
+                  { text: '🔙 Назад', callback_data: 'login_or_register' },
+                ],
+          ],
+        },
+      };
+
+      await bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: callbackQuery.message.message_id,
+        ...options,
+      });
+    } else {
+      bot.sendMessage(chatId, 'Пользователь не найден.');
+    }
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export async function handleReferralCodeEntry(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const telegramId = callbackQuery.from.id;
+
+  try {
+    const user = await UserModel.findOne({ telegramId });
+
+    if (user) {
+      // Устанавливаем состояние ожидания реферального кода
+      waitingForReferralCode.add(chatId);
+
+      // Отправляем сообщение для ввода реферального кода
+      const message = '<b>Введите реферальный код:</b>';
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[{ text: '🔙 Назад', callback_data: 'referral_system' }]],
+        },
+      };
+
+      await bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: callbackQuery.message.message_id,
+        ...options,
+      });
+
+      // Функция для обработки ввода реферального кода
+      const handleReferralInput = async (msg) => {
+        if (waitingForReferralCode.has(chatId) && msg.chat.id === chatId && msg.text) {
+          const referralCode = msg.text.trim();
+
+          if (referralCode) {
+            // Проверяем, существует ли реферальный код и не введен ли он уже
+            const referrer = await UserModel.findOne({ telegramId: referralCode });
+
+            if (referrer && referrer.telegramId !== telegramId) {
+              // Обновляем реферальный код пользователя
+              await UserModel.updateOne({ telegramId }, { refCode: referrer.telegramId });
+              bot.sendMessage(chatId, 'Реферальный код успешно введен!');
+              waitingForReferralCode.delete(chatId); // Удаляем состояние ожидания
+              bot.removeListener('message', handleReferralInput); // Удаляем обработчик после успешного ввода
+              delete referralInputHandlers[chatId];
+            } else {
+              bot.sendMessage(
+                chatId,
+                'Вы ввели неправильный реферальный код, возможно такого пользователя не существует. Попробуйте еще раз...',
+              );
+            }
+          } else {
+            bot.sendMessage(chatId, 'Реферальный код не может быть пустым. Попробуйте еще раз...');
+          }
+        }
+      };
+
+      // Устанавливаем обработчик ввода реферального кода
+      referralInputHandlers[chatId] = handleReferralInput;
+      bot.on('message', handleReferralInput);
+    } else {
+      bot.sendMessage(chatId, 'Пользователь не найден.');
+    }
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
 }

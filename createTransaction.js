@@ -80,11 +80,29 @@ export const updateTransactionStatus = async (invoiceId) => {
           { $inc: { balance: transaction.amount / 100 } },
           { new: true },
         );
+
+        // Проверка наличия реферального кода
+        if (updatedUser.refCode) {
+          const referrer = await UserModel.findOne({ telegramId: updatedUser.refCode });
+
+          if (referrer) {
+            const referralBonus = (transaction.amount / 100) * 0.1; // 10% бонус
+
+            // Обновление баланса реферала
+            await UserModel.findByIdAndUpdate(
+              referrer._id,
+              { $inc: { balance: referralBonus, refEarnings: referralBonus } },
+              { new: true },
+            );
+          }
+        }
+
         await BalanceTopUpModel.create({
           userId: transaction.userId,
           transactionId: transaction._id,
           amount: transaction.amount,
           currency: transaction.currency,
+          refCode: updatedUser.refCode || null, // Сохранение реферального кода
         });
       }
     } else if (transaction.status === 'reversed') {
@@ -101,6 +119,7 @@ export const updateTransactionStatus = async (invoiceId) => {
         );
       }
     }
+
     return transaction;
   } catch (error) {
     console.log(error);

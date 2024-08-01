@@ -31,6 +31,15 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user',
     },
+    refCode: {
+      type: String,
+      unique: true,
+      default: '',
+    },
+    refEarnings: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );

@@ -2,6 +2,9 @@
 import checkAuth from './db/middleware/checkAuth.js';
 import ProxyModel from './db/models/ProxyModel.js';
 import UserModel from './db/models/UserModel.js';
+import PriceModel from './db/models/PriceModel.js';
+
+import Decimal from 'decimal.js';
 
 import { differenceInHours } from 'date-fns';
 
@@ -328,5 +331,146 @@ export async function handleUpdateProxyPass(bot, msg, match) {
   } catch (err) {
     console.error('Ошибка:', err.message);
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export async function handleUpdateProxyDuration(bot, msg, match) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const proxyLogin = match[1];
+  const durationChange = parseFloat(match[2]);
+
+  try {
+    const result = await checkAuth(userId, 'admin');
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+
+    const proxy = await ProxyModel.findOne({ login: proxyLogin });
+    if (!proxy) {
+      bot.sendMessage(chatId, `Прокси с логином ${proxyLogin} не найден.`);
+      return;
+    }
+
+    if (proxy.isFree) {
+      bot.sendMessage(chatId, `Прокси ${proxyLogin} свободен и не может быть обновлен.`);
+      return;
+    }
+
+    const newExpirationDate = new Date(proxy.expirationDate);
+    newExpirationDate.setDate(newExpirationDate.getDate() + durationChange);
+
+    proxy.expirationDate = newExpirationDate;
+    await proxy.save();
+
+    bot.sendMessage(
+      chatId,
+      `Срок действия прокси ${proxyLogin} успешно обновлен. Новая дата окончания: ${newExpirationDate.toLocaleString()}.`,
+    );
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export const handleUpdateProxyPrice = async (bot, msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const command = msg.text.trim();
+
+  // Разбираем команду и параметры
+  const [commandName, description, amountStr] = command.split(' ');
+
+  // Проверяем права пользователя
+  const result = await checkAuth(userId, ['admin']);
+  if (!result.permission) {
+    return bot.sendMessage(chatId, 'У вас нет прав на выполнение этой команды.');
+  }
+
+  // Проверяем корректность входных данных
+  if (!description || isNaN(amountStr) || !['week', 'month'].includes(description)) {
+    return bot.sendMessage(
+      chatId,
+      'Неверный формат команды. Используйте /updateproxyprice <description> <amount>.',
+    );
+  }
+
+  // Обрабатываем цену и проверяем её корректность
+  const amount = parseFloat(amountStr);
+  if (isNaN(amount) || amount <= 0) {
+    return bot.sendMessage(
+      chatId,
+      'Неверная цена. Убедитесь, что цена является положительным числом.',
+    );
+  }
+
+  try {
+    // Обновляем цену в базе данных
+    const result = await PriceModel.updateOne({ description }, { $set: { amount } });
+
+    if (result.matchedCount === 0) {
+      return bot.sendMessage(chatId, `Цена для описания "${description}" не найдена.`);
+    }
+
+    bot.sendMessage(chatId, `Цена для "${description}" обновлена на ${amount.toFixed(2)}$.`);
+  } catch (err) {
+    console.error('Ошибка обновления цены:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка при обновлении цены. Попробуйте позже.');
+  }
+};
+
+export async function handleUpdateUserBalance(bot, message, type) {
+  const chatId = message.chat.id;
+  const text = message.text.split(' ');
+
+  // Проверяем, что команда имеет правильный формат
+  if (text.length !== 3) {
+    return bot.sendMessage(
+      chatId,
+      'Неверный формат команды. Используйте: /updateuserbalance <id> <+/-сумма>',
+    );
+  }
+
+  const userId = text[1];
+  const amountStr = text[2];
+
+  // Проверяем формат суммы с учетом знаков + и -
+  if (!/^([+-])?(\d+(\.\d{1,2})?)$/.test(amountStr)) {
+    return bot.sendMessage(
+      chatId,
+      'Неверный формат суммы. Используйте формат +X.0, +X.X, -X.0 или -X.X, где X - цифры.',
+    );
+  }
+
+  // Определяем знак суммы и преобразуем его в число с использованием Decimal.js
+  let amount = new Decimal(amountStr);
+
+  // Округляем сумму до двух знаков после запятой
+  amount = amount.toDecimalPlaces(2);
+
+  try {
+    // Находим пользователя по ID
+    const user = await UserModel.findOne({ telegramId: userId });
+
+    if (!user) {
+      return bot.sendMessage(chatId, 'Пользователь не найден.');
+    }
+
+    // Обновляем баланс
+
+    user.balance = new Decimal(user.balance || 0).plus(amount).toNumber();
+    if (type === 'ref') {
+      user.refEarnings = new Decimal(user.refEarnings || 0).plus(amount).toNumber();
+    }
+    await user.save();
+
+    bot.sendMessage(
+      chatId,
+      `Баланс пользователя ${userId} успешно обновлен на ${amount.toString()}$`,
+    );
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка при обновлении баланса.');
   }
 }

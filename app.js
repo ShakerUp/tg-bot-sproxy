@@ -10,6 +10,9 @@ import {
   notifyUsers,
   handleUpdateProxyPass,
   allWithProxy,
+  handleUpdateProxyDuration,
+  handleUpdateProxyPrice,
+  handleUpdateUserBalance,
 } from './commands.js';
 import { handleCallback } from './callbacks.js';
 import dotenv from 'dotenv';
@@ -53,5 +56,18 @@ bot.onText(/\/notifyusers/, async (msg) => notifyUsers(bot, msg));
 bot.onText(/\/updateproxypass (\S+) (\S+) (\S+)/, (msg, match) =>
   handleUpdateProxyPass(bot, msg, match),
 );
+bot.onText(/\/updateproxyduration (\S+) ([+-]\d+(\.\d+)?)/, (msg, match) =>
+  handleUpdateProxyDuration(bot, msg, match),
+);
+bot.onText(/\/updateproxyprice (.+)/, (msg, match) => {
+  handleUpdateProxyPrice(bot, msg);
+});
+
+bot.onText(/\/updateuserbalance (.+)/, (msg, match) => {
+  handleUpdateUserBalance(bot, msg);
+});
+bot.onText(/\/updateuserbonus (.+)/, (msg, match) => {
+  handleUpdateUserBalance(bot, msg, 'ref');
+});
 
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));

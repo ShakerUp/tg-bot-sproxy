@@ -1,5 +1,8 @@
 import UserModel from '../db/models/UserModel.js';
 import TransactionModel from '../db/models/TransactionModel.js';
+import PriceModel from '../db/models/PriceModel.js';
+
+import mongoose from 'mongoose';
 
 import checkAuth from '../db/middleware/checkAuth.js';
 import { createTransaction, getTransactionsByTelegramId } from '../createTransaction.js';
@@ -71,30 +74,47 @@ export const handleMyBalance = async (bot, callbackQuery) => {
   }
 };
 
+const waitingForTopupAmount = new Set();
+const topupInputHandlers = {};
+
+// Обработчик команды /topup
 export const handleTopupBalance = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const telegramId = callbackQuery.from.id;
   const messageId = callbackQuery.message.message_id;
 
+  waitingForTopupAmount.delete(chatId);
+  if (topupInputHandlers[chatId]) {
+    bot.removeListener('message', topupInputHandlers[chatId]);
+    delete topupInputHandlers[chatId];
+  }
+
   try {
     const result = await checkAuth(telegramId, ['admin', 'user']);
     if (result.permission) {
+      const prices = await PriceModel.find({}).sort({ currency: 1 });
+      const buttons = prices.map((price) => ({
+        text: `${price.amount}$`,
+        callback_data: `topup_${price.description}`,
+      }));
+
+      // Создаем клавиатуру
       const keyboard = {
         inline_keyboard: [
-          [
-            { text: '1$', callback_data: 'topup_1' },
-            { text: '9$', callback_data: 'topup_8' },
-            { text: '26$', callback_data: 'topup_25' },
-          ],
-          [{ text: '🔙 Назад', callback_data: 'my_balance' }],
+          buttons, // Все кнопки с заготовленными суммами в одном ряду
+          [{ text: '💸 Кастомная сумма', callback_data: 'topup_custom' }], // Кнопка кастомного пополнения на новой строке
+          [{ text: '🔙 Назад', callback_data: 'my_balance' }], // Кнопка "Назад" на новой строке
         ],
       };
 
-      bot.editMessageText('Выберите сумму для пополнения баланса:\n\nДля пополнения баланса криптовалютой, напишите в тех.поддержку.', {
-        chat_id: chatId,
-        message_id: messageId,
-        reply_markup: keyboard,
-      });
+      bot.editMessageText(
+        'Выберите сумму для пополнения баланса:\n\nДля пополнения баланса криптовалютой - напишите в тех.поддержку.',
+        {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: keyboard,
+        },
+      );
     } else {
       bot.editMessageText('У вас нет прав на это действие.', {
         chat_id: chatId,
@@ -107,13 +127,13 @@ export const handleTopupBalance = async (bot, callbackQuery) => {
   }
 };
 
-export const handleTopupBalance8 = async (bot, callbackQuery) => {
+export const handleTopupBalanceGeneric = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const telegramId = callbackQuery.from.id;
   const messageId = callbackQuery.message.message_id;
+  const action = callbackQuery.data.split('_')[1]; // Получаем описание из callback_data
 
   try {
-    // Находим пользователя по telegramId
     const user = await UserModel.findOne({ telegramId });
 
     if (!user) {
@@ -124,20 +144,28 @@ export const handleTopupBalance8 = async (bot, callbackQuery) => {
       return;
     }
 
-    // Создаем транзакцию для пополнения баланса на 8$
+    const price = await PriceModel.findOne({ description: action });
+
+    if (!price) {
+      bot.editMessageText('Неверная сумма для пополнения.', {
+        chat_id: chatId,
+        message_id: messageId,
+      });
+      return;
+    }
+
     const transaction = await createTransaction(
-      user._id, // Идентификатор пользователя в базе данных
-      user.telegramId, //Телеграм айди юзера
-      900, // Сумма пополнения в копейках (8$ = 800 копеек)
-      840, // Код валюты (980 - гривна)
-      120, //Время в секудах дейстия
-      'Пополнение счета SimpleProxy', // Номер чека или описание платежа
-      'Пополнение баланса на 9$', // Призначение платежа
+      user._id,
+      user.telegramId,
+      price.amount * 100,
+      price.currency,
+      120,
+      'Пополнение счета SimpleProxy',
+      `Пополнение баланса на ${price.amount}$`,
     );
 
-    // Отправляем сообщение пользователю о создании платежа
     bot.editMessageText(
-      `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите 9$.</a></b> в течении <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
+      `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите ${price.amount}$.</a></b> в течении <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
       {
         chat_id: chatId,
         message_id: messageId,
@@ -156,100 +184,94 @@ export const handleTopupBalance8 = async (bot, callbackQuery) => {
   }
 };
 
-export const handleTopupBalance1 = async (bot, callbackQuery) => {
+export async function handleTopupCustom(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const telegramId = callbackQuery.from.id;
-  const messageId = callbackQuery.message.message_id;
 
   try {
-    // Находим пользователя по telegramId
     const user = await UserModel.findOne({ telegramId });
 
-    if (!user) {
-      bot.editMessageText('Пользователь не найден.', {
-        chat_id: chatId,
-        message_id: messageId,
-      });
-      return;
-    }
+    if (user) {
+      // Устанавливаем состояние ожидания кастомной суммы
+      waitingForTopupAmount.add(chatId);
 
-    // Создаем транзакцию для пополнения баланса на 8$
-    const transaction = await createTransaction(
-      user._id, // Идентификатор пользователя в базе данных
-      user.telegramId, //Телеграм айди юзера
-      100, // Сумма пополнения в копейках (8$ = 800 копеек)
-      840, // Код валюты (980 - гривна)
-      120, //Время в секудах дейстия
-      'Пополнение счета SimpleProxy', // Номер чека или описание платежа
-      'Пополнение баланса на 1$', // Призначение платежа
-    );
-
-    // Отправляем сообщение пользователю о создании платежа
-    bot.editMessageText(
-      `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите 1$.</a></b> в течении <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
-      {
-        chat_id: chatId,
-        message_id: messageId,
+      // Отправляем сообщение для ввода кастомной суммы
+      const message = '<b>Введите сумму для пополнения (до 1 знака после запятой):</b>';
+      const options = {
         parse_mode: 'HTML',
         reply_markup: {
-          inline_keyboard: [[{ text: '💰 Мой баланс', callback_data: 'my_balance' }]],
+          inline_keyboard: [[{ text: '🔙 Назад', callback_data: 'topup_balance' }]],
         },
-      },
-    );
-  } catch (err) {
-    console.error('Ошибка:', err.message);
-    bot.editMessageText('Произошла ошибка. Попробуйте позже.', {
-      chat_id: chatId,
-      message_id: messageId,
-    });
-  }
-};
+      };
 
-export const handleTopupBalance25 = async (bot, callbackQuery) => {
-  const chatId = callbackQuery.message.chat.id;
-  const telegramId = callbackQuery.from.id;
-  const messageId = callbackQuery.message.message_id;
-
-  try {
-    // Находим пользователя по telegramId
-    const user = await UserModel.findOne({ telegramId });
-
-    if (!user) {
-      bot.editMessageText('Пользователь не найден.', {
+      await bot.editMessageText(message, {
         chat_id: chatId,
-        message_id: messageId,
+        message_id: callbackQuery.message.message_id,
+        ...options,
       });
-      return;
+
+      // Функция для обработки ввода кастомной суммы
+      const handleTopupAmountInput = async (msg) => {
+        if (waitingForTopupAmount.has(chatId) && msg.chat.id === chatId && msg.text) {
+          const amountStr = msg.text.trim();
+
+          // Проверяем корректность ввода суммы
+          if (isNaN(amountStr) || amountStr <= 0 || !/^(\d+(\.\d{1})?)$/.test(amountStr)) {
+            return bot.sendMessage(
+              chatId,
+              'Неверный формат суммы. Используйте формат X.0 или X.X, где X - цифры.',
+            );
+          }
+
+          const amount = parseFloat(amountStr);
+          if (amount <= 0) {
+            return bot.sendMessage(
+              chatId,
+              'Неверная сумма. Убедитесь, что сумма является положительным числом.',
+            );
+          }
+
+          // Получаем валюту, предполагаем, что это 840 (USD)
+          const currency = 840;
+
+          // Создаем транзакцию
+          const transaction = await createTransaction(
+            user._id,
+            user.telegramId,
+            amount * 100, // Сумма пополнения в копейках
+            currency,
+            120,
+            'Пополнение счета SimpleProxy',
+            `Пополнение баланса на ${amount}$`,
+          );
+
+          // Обновляем сообщение о создании платежа
+          await bot.editMessageText(
+            `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите ${amount}$</a></b> в течение <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
+            {
+              chat_id: chatId,
+              message_id: callbackQuery.message.message_id,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [[{ text: '💰 Мой баланс', callback_data: 'my_balance' }]],
+              },
+            },
+          );
+
+          waitingForTopupAmount.delete(chatId); // Удаляем состояние ожидания
+          bot.removeListener('message', handleTopupAmountInput); // Удаляем обработчик после успешного ввода
+          delete topupInputHandlers[chatId];
+        }
+      };
+
+      // Устанавливаем обработчик ввода кастомной суммы
+      topupInputHandlers[chatId] = handleTopupAmountInput;
+      bot.on('message', handleTopupAmountInput);
+    } else {
+      bot.sendMessage(chatId, 'Пользователь не найден.');
     }
-
-    // Создаем транзакцию для пополнения баланса на 8$
-    const transaction = await createTransaction(
-      user._id, // Идентификатор пользователя в базе данных
-      user.telegramId, //Телеграм айди юзера
-      2600, // Сумма пополнения в копейках (8$ = 800 копеек)
-      840, // Код валюты (980 - гривна)
-      120, //Время в секудах дейстия
-      'Пополнение счета SimpleProxy', // Номер чека или описание платежа
-      'Пополнение баланса на 26$', // Призначение платежа
-    );
-
-    // Отправляем сообщение пользователю о создании платежа
-    bot.editMessageText(
-      `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите 26$.</a></b> в течении <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
-      {
-        chat_id: chatId,
-        message_id: messageId,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [[{ text: '💰 Мой баланс', callback_data: 'my_balance' }]],
-        },
-      },
-    );
   } catch (err) {
     console.error('Ошибка:', err.message);
-    bot.editMessageText('Произошла ошибка. Попробуйте позже.', {
-      chat_id: chatId,
-      message_id: messageId,
-    });
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
   }
-};
+}
