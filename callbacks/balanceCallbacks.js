@@ -2,6 +2,8 @@ import UserModel from '../db/models/UserModel.js';
 import TransactionModel from '../db/models/TransactionModel.js';
 import PriceModel from '../db/models/PriceModel.js';
 
+import Decimal from 'decimal.js';
+
 import mongoose from 'mongoose';
 
 import checkAuth from '../db/middleware/checkAuth.js';
@@ -223,8 +225,8 @@ export async function handleTopupCustom(bot, callbackQuery) {
             );
           }
 
-          const amount = parseFloat(amountStr);
-          if (amount <= 0) {
+          const amount = new Decimal(amountStr);
+          if (amount.lte(0)) {
             return bot.sendMessage(
               chatId,
               'Неверная сумма. Убедитесь, что сумма является положительным числом.',
@@ -238,16 +240,20 @@ export async function handleTopupCustom(bot, callbackQuery) {
           const transaction = await createTransaction(
             user._id,
             user.telegramId,
-            amount * 100, // Сумма пополнения в копейках
+            amount.mul(100).toNumber(), // Сумма пополнения в копейках
             currency,
             120,
             'Пополнение счета SimpleProxy',
-            `Пополнение баланса на ${amount}$`,
+            `Пополнение баланса на ${amount.toFixed(1)}$`,
           );
 
           // Обновляем сообщение о создании платежа
           await bot.editMessageText(
-            `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${transaction.pageUrl}">оплатите ${amount}$</a></b> в течение <b>${transaction.validity}</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
+            `<b>Платеж успешно создан!</b>\nПожалуйста, <b><a href="${
+              transaction.pageUrl
+            }">оплатите ${amount.toFixed(1)}$</a></b> в течение <b>${
+              transaction.validity
+            }</b> секунд.\nПосле оплаты, перейдите на страницу <b>"Мой баланс"</b> и обновите свои транзакции.`,
             {
               chat_id: chatId,
               message_id: callbackQuery.message.message_id,

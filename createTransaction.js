@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { DateTime } from 'luxon';
 
 import TransactionModel from './db/models/TransactionModel.js';
 import BalanceTopUpModel from './db/models/BalanceTopUpModel.js';
@@ -24,7 +25,7 @@ export const createTransaction = async (
 
     const response = await axios.post(apiUrl, requestBody, {
       headers: {
-        'X-Token': process.env.MONOBANK_API_TOKEN,
+        'x-token': process.env.MONOBANK_API_TOKEN,
       },
     });
 
@@ -87,6 +88,15 @@ const updateTransactionStatus = async (invoiceId) => {
     // Пропускаем запрос, если статус уже expired
     if (transaction.status === 'expired') {
       console.log(`Транзакция ${invoiceId} уже имеет статус expired. Запрос не требуется.`);
+      return transaction;
+    }
+
+    // Пропускаем запрос, если статус success и прошло больше 1 дня
+    const now = DateTime.now();
+    const transactionDate = DateTime.fromJSDate(transaction.createdAt);
+    const daysDifference = now.diff(transactionDate, 'days').days;
+
+    if (transaction.status === 'success' && daysDifference > 1) {
       return transaction;
     }
 
