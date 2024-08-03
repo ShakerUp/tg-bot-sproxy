@@ -13,6 +13,7 @@ import {
   handleUpdateProxyDuration,
   handleUpdateProxyPrice,
   handleUpdateUserBalance,
+  handleBroadcast,
 } from './commands.js';
 import { handleCallback } from './callbacks.js';
 import dotenv from 'dotenv';
@@ -69,5 +70,5 @@ bot.onText(/\/updateuserbalance (.+)/, (msg, match) => {
 bot.onText(/\/updateuserbonus (.+)/, (msg, match) => {
   handleUpdateUserBalance(bot, msg, 'ref');
 });
-
+bot.onText(/\/broadcast/, (msg) => handleBroadcast(bot, msg));
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));
