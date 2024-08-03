@@ -450,6 +450,10 @@ export async function handleUpdateUserBalance(bot, message, type) {
   amount = amount.toDecimalPlaces(2);
 
   try {
+    const result = await checkAuth(userId, ['admin']);
+    if (!result.permission) {
+      return bot.sendMessage(chatId, 'У вас нет прав на выполнение этой команды.');
+    }
     // Находим пользователя по ID
     const user = await UserModel.findOne({ telegramId: userId });
 
