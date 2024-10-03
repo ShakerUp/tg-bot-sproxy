@@ -32,7 +32,10 @@ export async function handleAdminPanel(bot, callbackQuery) {
               { text: 'Пополнения баланса', callback_data: 'admin_balance_top_ups' },
               { text: 'Просмотр всех транзакций', callback_data: 'admin_transactions' },
             ],
-            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
+            [
+              { text: 'Список команд', callback_data: 'command_list' },
+              { text: '🔙 Назад', callback_data: 'login_or_register' },
+            ],
           ],
         },
       };
@@ -544,6 +547,49 @@ export async function handleViewAllTransactions(bot, callbackQuery) {
         message_id: messageId,
         ...options,
       });
+    }
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export async function handleAdminCommandList(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const messageId = callbackQuery.message.message_id;
+  const telegramId = callbackQuery.from.id;
+
+  try {
+    const result = await checkAuth(telegramId, 'admin');
+
+    if (result.permission) {
+      const commandList = `
+<b>Список доступных команд:</b>
+
+/freeproxy [login] [password] [changeiplink] - Освободить прокси и обновить данные.\n
+/giveproxy [login] [userId] [days] - Выдать прокси.\n
+/addproxy [proxyDetails] - Добавить новый прокси.\n
+/allnoproxy [MESSAGE] - Сообщение всем без прокси.\n
+/allproxy [MESSAGE] - Сообщение всем с прокси.\n
+/allusers [MESSAGE] - Сообщение всем пользователям.\n
+/notifyusers - Оповестить всех пользователей.\n
+/updateproxypass [login] [password] [changeiplink] - Обновить данные прокси.\n
+/updateproxyduration [login] [+/-days] - Обновить продолжительность прокси.\n
+/updateproxyprice [week/month price] - Обновить цену прокси.\n
+/updateuserbalance [userId +/-amount] - Обновить баланс пользователя.\n
+/updateuserbonus [userId +/-amount] - Обновить реферальный зароботок пользователя.`;
+      const keyboard = {
+        inline_keyboard: [[{ text: '🔙 Назад', callback_data: 'admin_panel' }]],
+      };
+
+      await bot.editMessageText(commandList, {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: keyboard,
+        parse_mode: 'HTML',
+      });
+    } else {
+      bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
     }
   } catch (err) {
     console.error('Ошибка:', err.message);

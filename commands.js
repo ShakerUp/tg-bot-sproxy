@@ -8,8 +8,16 @@ import Decimal from 'decimal.js';
 
 import { differenceInHours } from 'date-fns';
 
-export function handleStart(bot, msg) {
+export function handleStart(bot, msg, referralCode) {
   const chatId = msg.chat.id;
+  // Сохраняем реферальный код в сессии пользователя
+  if (referralCode) {
+    bot.session = bot.session || {};
+    bot.session[chatId] = { refCode: referralCode.trim() };
+  }
+
+  console.log(referralCode)
+
   const messageOptions = {
     reply_markup: {
       inline_keyboard: [[{ text: 'Войти/Зарегистрироваться', callback_data: 'login_or_register' }]],

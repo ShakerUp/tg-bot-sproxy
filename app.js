@@ -31,7 +31,7 @@ mongoose
   .catch((err) => console.error('Error connecting to MongoDB:', err.message));
 
 // Обробник команди /start
-bot.onText(/\/start/, (msg) => handleStart(bot, msg));
+bot.onText(/\/start(.*)/, (msg, match) => handleStart(bot, msg, match[1]));
 bot.onText(/\/freeproxy (\S+) (\S+) (\S+)/, (msg, match) => {
   handleFreeProxy(bot, msg, match);
 });
@@ -71,4 +71,5 @@ bot.onText(/\/updateuserbonus (.+)/, (msg, match) => {
   handleUpdateUserBalance(bot, msg, 'ref');
 });
 bot.onText(/\/broadcast/, (msg) => handleBroadcast(bot, msg));
+
 bot.on('callback_query', (callbackQuery) => handleCallback(bot, callbackQuery));

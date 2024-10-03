@@ -8,6 +8,7 @@ import {
   handleAdminBalanceTopUps,
   checkAllProxies,
   handleViewAllTransactions,
+  handleAdminCommandList,
 } from './callbacks/adminCallbacks.js';
 import {
   handleMyProxies,
@@ -41,6 +42,7 @@ const actionHandlers = {
   admin_transactions: handleViewAllTransactions, // Добавляем новую функцию
   referral_system: handleReferral,
   topup_custom: handleTopupCustom,
+  command_list: handleAdminCommandList,
 };
 
 const userAgreementURL =
@@ -80,7 +82,7 @@ export async function handleCallback(bot, callbackQuery) {
     await handleReferral(bot, callbackQuery);
   } else if (action.startsWith('topup_')) {
     await handleTopupBalanceGeneric(bot, callbackQuery); // Универсальный обработчик
-  } else if (callbackData === 'topup_custom') {
+  } else if (action === 'topup_custom') {
     await handleTopupCustom(bot, callbackQuery);
   } else {
     console.error('Неверное действие:', action);
@@ -177,14 +179,26 @@ async function handleAccept(bot, callbackQuery) {
   const username = callbackQuery.from.username;
   const firstName = callbackQuery.from.first_name;
 
+  // Получаем реферальный код из параметра 'start', если он был передан при старте
+  const refCode = bot.session?.[chatId]?.refCode || null;
+
   try {
-    await UserModel.create({ chatId, telegramId, username, firstName });
+    // Создаем нового пользователя с реферальным кодом, если он был передан
+    await UserModel.create({
+      chatId,
+      telegramId,
+      username,
+      firstName,
+      refCode: refCode || '', // Указываем реферальный код, если он есть
+    });
+
     const successMessage = 'Вы успешно зарегистрированы!';
     const successOptions = {
       reply_markup: {
         inline_keyboard: [[{ text: '📑 На главную', callback_data: 'back' }]],
       },
     };
+
     bot.editMessageText(successMessage, {
       chat_id: chatId,
       message_id: callbackQuery.message.message_id,
@@ -253,10 +267,13 @@ export async function handleReferral(bot, callbackQuery) {
       let message = `<b>Реферальная система:</b>\n\n`;
       message += `<b>👋 Вы получаете 10% от пополнений ваших рефералов</b>\n\n`;
       message += `<b>🌐 Ваш реферальный код:</b> <code>${user.telegramId}</code>\n`;
+      message += `<b>🔗 Ваша реферальная ссылка:</b> <code>https://t.me/proxy_simple_bot?start=${user.telegramId}</code>\n\n`;
       message += `<b>👨‍👩‍👦‍👦 Кол-во рефералов:</b> ${referralCount}\n`;
       message += `<b>💵 Заработок с реферальной системы: </b> ${referralEarnings}$\n`;
 
-      user.refCode ? (message += `\n <b>✅ Вы являетесь рефералом</b> ${user.refCode}`) : '';
+      user.refCode
+        ? (message += `\n <b>✅ Вы являетесь рефералом пользователя с ID:</b> ${user.refCode}`)
+        : '';
 
       const options = {
         parse_mode: 'HTML',
@@ -294,10 +311,8 @@ export async function handleReferralCodeEntry(bot, callbackQuery) {
     const user = await UserModel.findOne({ telegramId });
 
     if (user) {
-      // Устанавливаем состояние ожидания реферального кода
       waitingForReferralCode.add(chatId);
 
-      // Отправляем сообщение для ввода реферального кода
       const message = '<b>Введите реферальный код:</b>';
       const options = {
         parse_mode: 'HTML',
@@ -311,22 +326,18 @@ export async function handleReferralCodeEntry(bot, callbackQuery) {
         message_id: callbackQuery.message.message_id,
         ...options,
       });
-
-      // Функция для обработки ввода реферального кода
       const handleReferralInput = async (msg) => {
         if (waitingForReferralCode.has(chatId) && msg.chat.id === chatId && msg.text) {
           const referralCode = msg.text.trim();
 
           if (referralCode) {
-            // Проверяем, существует ли реферальный код и не введен ли он уже
             const referrer = await UserModel.findOne({ telegramId: referralCode });
 
             if (referrer && referrer.telegramId !== telegramId) {
-              // Обновляем реферальный код пользователя
               await UserModel.updateOne({ telegramId }, { refCode: referrer.telegramId });
               bot.sendMessage(chatId, 'Реферальный код успешно введен!');
-              waitingForReferralCode.delete(chatId); // Удаляем состояние ожидания
-              bot.removeListener('message', handleReferralInput); // Удаляем обработчик после успешного ввода
+              waitingForReferralCode.delete(chatId);
+              bot.removeListener('message', handleReferralInput);
               delete referralInputHandlers[chatId];
             } else {
               bot.sendMessage(
