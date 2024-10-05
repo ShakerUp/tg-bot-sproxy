@@ -10,6 +10,7 @@ import {
   handleViewAllTransactions,
   handleAdminCommandList,
   handleTrackPanel,
+  handleAdminTrackPanel,
 } from './callbacks/adminCallbacks.js';
 import {
   handleMyProxies,
@@ -45,6 +46,7 @@ const actionHandlers = {
   topup_custom: handleTopupCustom,
   command_list: handleAdminCommandList,
   track_panel: handleTrackPanel,
+  admin_track_panel: handleAdminTrackPanel
 };
 
 const userAgreementURL =

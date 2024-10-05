@@ -34,8 +34,9 @@ export async function handleAdminPanel(bot, callbackQuery) {
             ],
             [
               { text: 'Список команд', callback_data: 'command_list' },
-              { text: '🔙 Назад', callback_data: 'login_or_register' },
+              { text: 'Трек панель', callback_data: 'admin_track_panel' },
             ],
+            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
           ],
         },
       };
@@ -680,6 +681,107 @@ export async function handleTrackPanel(bot, callbackQuery) {
               : []),
             ...(pageIndex < messages.length - 1
               ? [{ text: 'Далее', callback_data: `track_panel_${pageIndex + 1}` }]
+              : []),
+            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
+          ],
+        },
+      };
+
+      await bot.editMessageText(messages[pageIndex], {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
+    }
+  } catch (err) {
+    console.error('Ошибка при обработке трэкинга активаций:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка при обработке запроса. Попробуйте позже.');
+  }
+}
+
+export async function handleAdminTrackPanel(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const telegramId = callbackQuery.from.id;
+  const messageId = callbackQuery.message.message_id;
+  const data = callbackQuery.data;
+
+  try {
+    // Проверяем права пользователя (admin)
+    const result = await checkAuth(telegramId, ['admin']);
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+
+    // Получаем список всех активаций
+    const activations = await ActivationModel.find().sort({
+      activatedAt: -1,
+    });
+
+    // Переменная для хранения собранных сообщений
+    let messages = [];
+    let message = `<b>Трэкинг активаций:</b>\n\n`;
+
+    // Добавляем активации в сообщение
+    activations.forEach((activation, index) => {
+      let activationInfo = `\n<b>Пользователь:</b> ${
+        activation.activatedUsername || 'Неизвестно'
+      } (${activation.activatedUserId})\n`;
+      activationInfo += `<b>Дата активации:</b> ${new Date(
+        activation.activatedAt,
+      ).toLocaleString()}\n`;
+
+      if ((message + activationInfo).length > chunkSize) {
+        messages.push(message);
+        message = '';
+      }
+
+      message += activationInfo;
+    });
+
+    // Добавляем последнее сообщение с остатками информации
+    messages.push(message);
+
+    // Отправляем только первую часть сообщения при первом вызове
+    if (data === 'admin_track_panel') {
+      const totalActivations = activations.length;
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Далее', callback_data: 'admin_track_panel_1' }],
+            [
+              { text: '🔄 Обновить', callback_data: 'admin_track_panel' },
+              { text: '🔙 Назад', callback_data: 'login_or_register' },
+            ],
+          ],
+        },
+      };
+
+      await bot.editMessageText(
+        `${
+          messages[0]
+        }\n\n<b>Всего активаций:</b> ${totalActivations} \n\nПоследнее обновление: ${formatter.format(
+          new Date(),
+        )}`,
+        {
+          chat_id: chatId,
+          message_id: messageId,
+          ...options,
+        },
+      );
+    } else {
+      // Определяем текущую страницу и показываем соответствующую часть сообщения
+      const pageIndex = parseInt(data.split('_')[3], 10);
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...(pageIndex > 0
+              ? [{ text: 'Назад', callback_data: `admin_track_panel_${pageIndex - 1}` }]
+              : []),
+            ...(pageIndex < messages.length - 1
+              ? [{ text: 'Далее', callback_data: `admin_track_panel_${pageIndex + 1}` }]
               : []),
             [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
           ],
