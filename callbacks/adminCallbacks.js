@@ -616,15 +616,6 @@ export async function handleTrackPanel(bot, callbackQuery) {
       activatedAt: -1,
     });
 
-    // Проверяем, есть ли активации
-    if (!activations.length) {
-      await bot.editMessageText('У вас пока нет активаций.', {
-        chat_id: chatId,
-        message_id: messageId,
-      });
-      return;
-    }
-
     // Переменная для хранения собранных сообщений
     let messages = [];
     let message = `<b>Трэкинг активаций для ${telegramId}:</b>\n\n`;
