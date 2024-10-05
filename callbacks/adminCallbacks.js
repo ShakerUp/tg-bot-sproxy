@@ -629,9 +629,6 @@ export async function handleTrackPanel(bot, callbackQuery) {
     let messages = [];
     let message = `<b>Трэкинг активаций для ${telegramId}:</b>\n\n`;
 
-    // Максимальный размер сообщения
-    const chunkSize = 4000; // Можно подогнать в зависимости от ограничений Telegram
-
     // Добавляем активации в сообщение
     activations.forEach((activation, index) => {
       let activationInfo = `\n<b>Пользователь:</b> ${
@@ -660,16 +657,26 @@ export async function handleTrackPanel(bot, callbackQuery) {
         reply_markup: {
           inline_keyboard: [
             [{ text: 'Далее', callback_data: 'track_panel_1' }],
-            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
+            [
+              { text: '🔄 Обновить', callback_data: 'track_panel' },
+              { text: '🔙 Назад', callback_data: 'login_or_register' },
+            ],
           ],
         },
       };
 
-      await bot.editMessageText(`${messages[0]}\n\n<b>Всего активаций:</b> ${totalActivations}`, {
-        chat_id: chatId,
-        message_id: messageId,
-        ...options,
-      });
+      await bot.editMessageText(
+        `${
+          messages[0]
+        }\n\n<b>Всего активаций:</b> ${totalActivations} \n\nПоследнее обновление: ${formatter.format(
+          new Date(),
+        )}`,
+        {
+          chat_id: chatId,
+          message_id: messageId,
+          ...options,
+        },
+      );
     } else {
       // Определяем текущую страницу и показываем соответствующую часть сообщения
       const pageIndex = parseInt(data.split('_')[2], 10);
@@ -678,10 +685,10 @@ export async function handleTrackPanel(bot, callbackQuery) {
         reply_markup: {
           inline_keyboard: [
             ...(pageIndex > 0
-              ? [[{ text: 'Назад', callback_data: `track_panel_${pageIndex - 1}` }]]
+              ? [{ text: 'Назад', callback_data: `track_panel_${pageIndex - 1}` }]
               : []),
             ...(pageIndex < messages.length - 1
-              ? [[{ text: 'Далее', callback_data: `track_panel_${pageIndex + 1}` }]]
+              ? [{ text: 'Далее', callback_data: `track_panel_${pageIndex + 1}` }]
               : []),
             [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
           ],
