@@ -2,10 +2,10 @@ import checkAuth from '../db/middleware/checkAuth.js';
 import UserModel from '../db/models/UserModel.js';
 import ProxyModel from '../db/models/ProxyModel.js';
 import BalanceTopUpModel from '../db/models/BalanceTopUpModel.js';
+import ActivationModel from '../db/models/ActivationModel.js';
+import TransactionModel from '../db/models/TransactionModel.js';
 
 import { getTransactionsByTelegramId } from '../createTransaction.js';
-
-import TransactionModel from '../db/models/TransactionModel.js';
 
 import testProxy from '../bot/utils/proxyCheck.js';
 
@@ -594,5 +594,108 @@ export async function handleAdminCommandList(bot, callbackQuery) {
   } catch (err) {
     console.error('Ошибка:', err.message);
     bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
+export async function handleTrackPanel(bot, callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const telegramId = callbackQuery.from.id;
+  const messageId = callbackQuery.message.message_id;
+  const data = callbackQuery.data;
+
+  try {
+    // Проверяем права пользователя (admin или traf)
+    const result = await checkAuth(telegramId, ['admin', 'traf']);
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+
+    // Получаем список активаций
+    const activations = await ActivationModel.find({ referrerTelegramId: telegramId }).sort({
+      activatedAt: -1,
+    });
+
+    // Проверяем, есть ли активации
+    if (!activations.length) {
+      await bot.editMessageText('У вас пока нет активаций.', {
+        chat_id: chatId,
+        message_id: messageId,
+      });
+      return;
+    }
+
+    // Переменная для хранения собранных сообщений
+    let messages = [];
+    let message = `<b>Трэкинг активаций для ${telegramId}:</b>\n\n`;
+
+    // Максимальный размер сообщения
+    const chunkSize = 4000; // Можно подогнать в зависимости от ограничений Telegram
+
+    // Добавляем активации в сообщение
+    activations.forEach((activation, index) => {
+      let activationInfo = `\n<b>Пользователь:</b> ${
+        activation.activatedUsername || 'Неизвестно'
+      } (${activation.activatedUserId})\n`;
+      activationInfo += `<b>Дата активации:</b> ${new Date(
+        activation.activatedAt,
+      ).toLocaleString()}\n`;
+
+      if ((message + activationInfo).length > chunkSize) {
+        messages.push(message);
+        message = '';
+      }
+
+      message += activationInfo;
+    });
+
+    // Добавляем последнее сообщение с остатками информации
+    messages.push(message);
+
+    // Отправляем только первую часть сообщения при первом вызове
+    if (data === 'track_panel') {
+      const totalActivations = activations.length;
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Далее', callback_data: 'track_panel_1' }],
+            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
+          ],
+        },
+      };
+
+      await bot.editMessageText(`${messages[0]}\n\n<b>Всего активаций:</b> ${totalActivations}`, {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
+    } else {
+      // Определяем текущую страницу и показываем соответствующую часть сообщения
+      const pageIndex = parseInt(data.split('_')[2], 10);
+      const options = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...(pageIndex > 0
+              ? [[{ text: 'Назад', callback_data: `track_panel_${pageIndex - 1}` }]]
+              : []),
+            ...(pageIndex < messages.length - 1
+              ? [[{ text: 'Далее', callback_data: `track_panel_${pageIndex + 1}` }]]
+              : []),
+            [{ text: '🔙 Назад', callback_data: 'login_or_register' }],
+          ],
+        },
+      };
+
+      await bot.editMessageText(messages[pageIndex], {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
+    }
+  } catch (err) {
+    console.error('Ошибка при обработке трэкинга активаций:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка при обработке запроса. Попробуйте позже.');
   }
 }

@@ -3,32 +3,63 @@ import checkAuth from './db/middleware/checkAuth.js';
 import ProxyModel from './db/models/ProxyModel.js';
 import UserModel from './db/models/UserModel.js';
 import PriceModel from './db/models/PriceModel.js';
+import ActivationModel from './db/models/ActivationModel.js';
 
 import Decimal from 'decimal.js';
 
 import { differenceInHours } from 'date-fns';
 
-export function handleStart(bot, msg, referralCode) {
+export async function handleStart(bot, msg, referralCode) {
   const chatId = msg.chat.id;
-  // Сохраняем реферальный код в сессии пользователя
+  const telegramId = msg.from.id;
+  const username = msg.from.username || 'NoUsername';
+
   if (referralCode) {
     bot.session = bot.session || {};
     bot.session[chatId] = { refCode: referralCode.trim() };
   }
 
-  console.log(referralCode)
+  try {
+    const existingUser = await UserModel.findOne({ telegramId });
 
-  const messageOptions = {
-    reply_markup: {
-      inline_keyboard: [[{ text: 'Войти/Зарегистрироваться', callback_data: 'login_or_register' }]],
-    },
-  };
+    if (!existingUser) {
+      if (referralCode) {
+        const existingActivation = await ActivationModel.findOne({ activatedUserId: telegramId });
 
-  bot.sendMessage(
-    chatId,
-    'Добро пожаловать! Для входа или регистрации нажмите кнопку ниже.',
-    messageOptions,
-  );
+        if (!existingActivation) {
+          await ActivationModel.create({
+            referrerTelegramId: referralCode.trim(),
+            activatedUserId: telegramId,
+            activatedUsername: username,
+            activatedAt: new Date(),
+          });
+
+          console.log(
+            `Активация засчитана: пользователь ${telegramId} (${username}) перешел по ссылке ${referralCode}`,
+          );
+        } else {
+          console.log(`Активация уже была засчитана для пользователя ${telegramId}`);
+        }
+      }
+    }
+
+    const messageOptions = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Войти/Зарегистрироваться', callback_data: 'login_or_register' }],
+        ],
+      },
+    };
+
+    bot.sendMessage(
+      chatId,
+      'Добро пожаловать! Для входа или регистрации нажмите кнопку ниже.',
+      messageOptions,
+    );
+  } catch (err) {
+    console.error('Ошибка при обработке команды /start:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка при обработке команды. Попробуйте позже.');
+  }
 }
 
 export async function handleFreeProxy(bot, msg, match) {

@@ -11,7 +11,7 @@ export async function handleMyProxies(bot, callbackQuery) {
   const telegramId = callbackQuery.from.id;
 
   try {
-    const result = await checkAuth(telegramId, ['admin', 'user']);
+    const result = await checkAuth(telegramId, ['admin', 'user', 'traf']);
     if (result.permission) {
       const userProxies = await ProxyModel.find({ userTelegramId: telegramId });
 
@@ -123,7 +123,7 @@ export async function handleRentProxy(bot, callbackQuery) {
   const userId = callbackQuery.from.id;
 
   try {
-    const result = await checkAuth(userId, ['user', 'admin']);
+    const result = await checkAuth(userId, ['user', 'admin', 'traf']);
 
     if (result.permission) {
       let days;

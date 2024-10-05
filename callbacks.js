@@ -9,6 +9,7 @@ import {
   checkAllProxies,
   handleViewAllTransactions,
   handleAdminCommandList,
+  handleTrackPanel,
 } from './callbacks/adminCallbacks.js';
 import {
   handleMyProxies,
@@ -43,6 +44,7 @@ const actionHandlers = {
   referral_system: handleReferral,
   topup_custom: handleTopupCustom,
   command_list: handleAdminCommandList,
+  track_panel: handleTrackPanel,
 };
 
 const userAgreementURL =
@@ -84,6 +86,8 @@ export async function handleCallback(bot, callbackQuery) {
     await handleTopupBalanceGeneric(bot, callbackQuery); // Универсальный обработчик
   } else if (action === 'topup_custom') {
     await handleTopupCustom(bot, callbackQuery);
+  } else if (action.startsWith('track_panel_')) {
+    await handleTrackPanel(bot, callbackQuery);
   } else {
     console.error('Неверное действие:', action);
   }
@@ -117,6 +121,9 @@ async function handleUser(bot, callbackQuery) {
             ],
             user.role === 'admin'
               ? [{ text: '🛠️ Админ панель', callback_data: 'admin_panel' }]
+              : [], // Добавляем кнопку только если пользователь администратор
+            user.role === 'admin' || user.role === 'traf'
+              ? [{ text: '🛠️ Трекинг активаций', callback_data: 'track_panel' }]
               : [], // Добавляем кнопку только если пользователь администратор
           ],
         },
@@ -242,7 +249,6 @@ async function handleBack(bot, callbackQuery) {
   });
 }
 
-// Для хранения состояния ожидания, используйте объект (или базу данных для хранения сессий)
 const waitingForReferralCode = new Set();
 const referralInputHandlers = {};
 
@@ -250,7 +256,6 @@ export async function handleReferral(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const telegramId = callbackQuery.from.id;
 
-  // Удаляем состояние ожидания и обработчик для реферального кода
   waitingForReferralCode.delete(chatId);
   if (referralInputHandlers[chatId]) {
     bot.removeListener('message', referralInputHandlers[chatId]);

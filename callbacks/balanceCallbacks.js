@@ -18,7 +18,7 @@ export const handleMyBalance = async (bot, callbackQuery) => {
   const messageId = callbackQuery.message.message_id;
 
   try {
-    const result = await checkAuth(telegramId, ['admin', 'user']);
+    const result = await checkAuth(telegramId, ['admin', 'user', 'traf']);
     if (result.permission) {
       const user = result.user;
 
@@ -92,7 +92,7 @@ export const handleTopupBalance = async (bot, callbackQuery) => {
   }
 
   try {
-    const result = await checkAuth(telegramId, ['admin', 'user']);
+    const result = await checkAuth(telegramId, ['admin', 'user', 'traf']);
     if (result.permission) {
       const prices = await PriceModel.find({}).sort({ currency: 1 });
       const buttons = prices.map((price) => ({
