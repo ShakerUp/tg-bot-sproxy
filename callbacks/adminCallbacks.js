@@ -81,8 +81,10 @@ export async function handleAdminUsers(bot, callbackQuery) {
       userInfo += `<b>Имя пользователя:</b> ${user.username} / ${user.firstName} \n`;
       userInfo += `<b>Telegram ID:</b> ${user.telegramId}\n`;
       userInfo += `<b>Баланс:</b> ${user.balance}$\n`;
-      userInfo += `<b>Реф-код:</b> ${
-        user.refCode ? `${user.refCode} | +${user.refEarnings}$` : '-'
+      userInfo += `<b>Реф-инфо:</b> ${
+        user.refCode || user.refEarnings
+          ? `${user.refCode} | +${user.refEarnings}$ | ${user.refBonusAmount}`
+          : '-'
       }\n`;
       userInfo += `<b>Дата регистрации:</b> ${formatter.format(user.createdAt)}\n\n`;
 
@@ -489,7 +491,7 @@ export async function handleViewAllTransactions(bot, callbackQuery) {
 
     transactions.forEach((transaction, index) => {
       const date = formatter.format(new Date(transaction.createdAt));
-      const username = transaction.userId.username || 'Имя не указано';
+      const username = transaction.userId?.username || 'Имя не указано';
       let transactionInfo = `<b><a href="${transaction.pageUrl}">Транзакция №${index + 1} | ${
         transaction.invoiceId
       }</a></b>\nПользователь: ${username}\nСумма: ${transaction.amount}; Статус: ${

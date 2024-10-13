@@ -46,7 +46,7 @@ const actionHandlers = {
   topup_custom: handleTopupCustom,
   command_list: handleAdminCommandList,
   track_panel: handleTrackPanel,
-  admin_track_panel: handleAdminTrackPanel
+  admin_track_panel: handleAdminTrackPanel,
 };
 
 const userAgreementURL =
@@ -270,12 +270,14 @@ export async function handleReferral(bot, callbackQuery) {
     if (user) {
       const referralCount = await UserModel.countDocuments({ refCode: user.telegramId });
       const referralEarnings = user.refEarnings || 0;
+      const refAmount = user.refBonusAmount || 0;
 
       let message = `<b>Реферальная система:</b>\n\n`;
       message += `<b>👋 Вы получаете 10% от пополнений ваших рефералов</b>\n\n`;
       message += `<b>🌐 Ваш реферальный код:</b> <code>${user.telegramId}</code>\n`;
       message += `<b>🔗 Ваша реферальная ссылка:</b> <code>https://t.me/proxy_simple_bot?start=${user.telegramId}</code>\n\n`;
       message += `<b>👨‍👩‍👦‍👦 Кол-во рефералов:</b> ${referralCount}\n`;
+      message += `<b>👨‍👩‍👦‍👦 Кол-во покупок рефералов:</b> ${refAmount}\n`;
       message += `<b>💵 Заработок с реферальной системы: </b> ${referralEarnings}$\n`;
 
       user.refCode

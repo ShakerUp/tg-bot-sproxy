@@ -144,7 +144,7 @@ const handleSuccessTransaction = async (transaction) => {
           const referralBonus = (transaction.amount / 100) * 0.1; // 10% бонус
           await UserModel.findByIdAndUpdate(
             referrer._id,
-            { $inc: { balance: referralBonus, refEarnings: referralBonus } },
+            { $inc: { balance: referralBonus, refEarnings: referralBonus, refBonusAmount: 1 } },
             { new: true },
           );
         }

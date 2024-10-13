@@ -110,10 +110,11 @@ export const handleTopupBalance = async (bot, callbackQuery) => {
       };
 
       bot.editMessageText(
-        'Выберите сумму для пополнения баланса:\n\nДля пополнения баланса криптовалютой - напишите в тех.поддержку.',
+        'Выберите сумму для пополнения баланса:\n\nДля пополнения баланса <b>💵криптовалютой💵</b> - напишите в тех.поддержку.',
         {
           chat_id: chatId,
           message_id: messageId,
+          parse_mode: 'HTML',
           reply_markup: keyboard,
         },
       );
@@ -133,7 +134,7 @@ export const handleTopupBalanceGeneric = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const telegramId = callbackQuery.from.id;
   const messageId = callbackQuery.message.message_id;
-  const action = callbackQuery.data.split('_')[1]; // Получаем описание из callback_data
+  const action = callbackQuery.data.split('_')[1]; 
 
   try {
     const user = await UserModel.findOne({ telegramId });

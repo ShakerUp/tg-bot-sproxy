@@ -1,7 +1,6 @@
 {
   "name": "telegram-bot-proxy",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -24,5 +23,8 @@
     "proxy-chain": "^2.4.0",
     "proxy-check": "^1.0.8",
     "validator": "^13.11.0"
-  }
+  },
+  "devDependencies": {},
+  "keywords": [],
+  "description": ""
 }

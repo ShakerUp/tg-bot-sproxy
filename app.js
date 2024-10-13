@@ -1,5 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api';
 import mongoose from 'mongoose';
+
 import {
   handleStart,
   handleFreeProxy,
@@ -18,19 +19,15 @@ import {
 import { handleCallback } from './callbacks.js';
 import dotenv from 'dotenv';
 
-// Завантажуємо змінні середовища з файлу .env
 dotenv.config();
 
-// Ініціалізація бота
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
-// Підключення до бази даних MongoDB
-mongoose
+await mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB ++'))
   .catch((err) => console.error('Error connecting to MongoDB:', err.message));
 
-// Обробник команди /start
 bot.onText(/\/start(.*)/, (msg, match) => handleStart(bot, msg, match[1]));
 bot.onText(/\/freeproxy (\S+) (\S+) (\S+)/, (msg, match) => {
   handleFreeProxy(bot, msg, match);
@@ -43,6 +40,7 @@ bot.onText(/\/giveproxy (\S+) (\d+) (\d+(\.\d+)?)/, (msg, match) => {
 bot.onText(/\/addproxy (.+)/, (msg, match) => {
   addProxy(bot, msg);
 });
+
 bot.onText(/\/allnoproxy (.+)/, (msg, match) => {
   allNoProxy(bot, msg, match);
 });

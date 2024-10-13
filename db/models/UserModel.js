@@ -40,11 +40,14 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    refBonusAmount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );
 
-// Создание модели пользователя
 const UserModel = mongoose.model('User', userSchema);
 
 export default UserModel;
