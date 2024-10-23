@@ -24,7 +24,6 @@
     "proxy-check": "^1.0.8",
     "validator": "^13.11.0"
   },
-  "devDependencies": {},
   "keywords": [],
   "description": ""
 }
