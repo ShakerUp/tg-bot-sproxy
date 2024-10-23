@@ -15,6 +15,7 @@ import {
   handleUpdateProxyPrice,
   handleUpdateUserBalance,
   handleBroadcast,
+  allNoProxyTest,
 } from './commands.js';
 import { handleCallback } from './callbacks.js';
 import dotenv from 'dotenv';
@@ -43,6 +44,9 @@ bot.onText(/\/addproxy (.+)/, (msg, match) => {
 
 bot.onText(/\/allnoproxy (.+)/, (msg, match) => {
   allNoProxy(bot, msg, match);
+});
+bot.onText(/\/allnoproxytest (.+)/, (msg, match) => {
+  allNoProxyTest(bot, msg, match);
 });
 bot.onText(/\/allproxy (.+)/, (msg, match) => {
   allWithProxy(bot, msg, match);

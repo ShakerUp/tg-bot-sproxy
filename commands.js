@@ -288,6 +288,78 @@ export async function allNoProxy(bot, msg, match) {
   }
 }
 
+export async function allNoProxyTest(bot, msg, match) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const messageText = match[1];
+
+  try {
+    const result = await checkAuth(userId, 'admin');
+    if (!result.permission) {
+      bot.sendMessage(chatId, 'У вас нет прав на это действие.');
+      return;
+    }
+
+    const usedProxies = await ProxyModel.find({ isFree: false }).distinct('userTelegramId');
+    const usersWithoutProxy = await UserModel.find({ telegramId: '684460638' });
+
+    if (messageText.startsWith('sales')) {
+      const parts = messageText.split(' ');
+      const startDate = parts[1];
+      const endDate = parts[2];
+      const discountPercent = parseFloat(parts[3]);
+
+      const basePrice30Days = new Decimal(26);
+      const basePrice7Days = new Decimal(9);
+
+      const discountMultiplier = new Decimal(1).minus(discountPercent / 100);
+      const discountedPrice30Days = basePrice30Days.mul(discountMultiplier).toFixed(1);
+      const discountedPrice7Days = basePrice7Days.mul(discountMultiplier).toFixed(1);
+
+      if (startDate && endDate && !isNaN(discountPercent)) {
+        const formattedStartDate = format(
+          new Date(`2024-${startDate.split('.')[1]}-${startDate.split('.')[0]}`),
+          'dd.MM',
+        );
+        const formattedEndDate = format(
+          new Date(`2024-${endDate.split('.')[1]}-${endDate.split('.')[0]}`),
+          'dd.MM',
+        );
+
+        const discountMessage = `
+🎁 <b>Скидки:</b>
+--- Начиная <b>с ${formattedStartDate} по ${formattedEndDate}</b> будут действовать скидки в размере <b>${discountPercent}%</b>!
+
+<b>30 дней</b> - <s>26$</s> <b>${discountedPrice30Days}$</b>; <b>7 дней</b> - <s>9$</s> <b>${discountedPrice7Days}$</b>
+        `;
+
+        for (const user of usersWithoutProxy) {
+          bot.sendMessage(user.chatId, discountMessage, { parse_mode: 'HTML' });
+        }
+
+        bot.sendMessage(
+          chatId,
+          `Сообщение о скидках успешно отправлено ${usersWithoutProxy.length} пользователям без прокси.`,
+        );
+      } else {
+        bot.sendMessage(chatId, 'Ошибка: убедитесь, что указали обе даты и процент скидки.');
+      }
+    } else {
+      for (const user of usersWithoutProxy) {
+        bot.sendMessage(user.chatId, messageText);
+      }
+
+      bot.sendMessage(
+        chatId,
+        `Тест успешно отправлено ${usersWithoutProxy.length} пользователям без прокси.`,
+      );
+    }
+  } catch (err) {
+    console.error('Ошибка:', err.message);
+    bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+  }
+}
+
 export async function handleAllUsers(bot, msg, match) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
