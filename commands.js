@@ -577,6 +577,7 @@ export const handleUpdateProxyPrice = async (bot, msg) => {
 export async function handleUpdateUserBalance(bot, message, type) {
   const chatId = message.chat.id;
   const text = message.text.split(' ');
+  const adminId = message.from.id;
 
   // Проверяем, что команда имеет правильный формат
   if (text.length !== 3) {
@@ -604,7 +605,8 @@ export async function handleUpdateUserBalance(bot, message, type) {
   amount = amount.toDecimalPlaces(2);
 
   try {
-    const result = await checkAuth(userId, ['admin']);
+    const result = await checkAuth(adminId, ['admin']);
+    console.log(result);
     if (!result.permission) {
       return bot.sendMessage(chatId, 'У вас нет прав на выполнение этой команды.');
     }

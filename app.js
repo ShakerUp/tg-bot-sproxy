@@ -1,5 +1,9 @@
 import TelegramBot from 'node-telegram-bot-api';
 import mongoose from 'mongoose';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fetch from 'node-fetch';
 
 import {
   handleStart,
@@ -23,6 +27,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 await mongoose
   .connect(process.env.MONGODB_URI)
