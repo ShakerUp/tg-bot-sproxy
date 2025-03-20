@@ -141,7 +141,7 @@ const handleSuccessTransaction = async (transaction) => {
       if (updatedUser.refCode) {
         const referrer = await UserModel.findOne({ telegramId: updatedUser.refCode });
         if (referrer) {
-          const referralBonus = (transaction.amount / 100) * 0.1; // 10% бонус
+          const referralBonus = (transaction.amount / 100) * 0.05; // 5% бонус
           await UserModel.findByIdAndUpdate(
             referrer._id,
             { $inc: { balance: referralBonus, refEarnings: referralBonus, refBonusAmount: 1 } },
