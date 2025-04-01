@@ -273,7 +273,7 @@ export async function handleReferral(bot, callbackQuery) {
       const refAmount = user.refBonusAmount || 0;
 
       let message = `<b>Реферальная система:</b>\n\n`;
-      message += `<b>👋 Вы получаете 10% от пополнений ваших рефералов</b>\n\n`;
+      message += `<b>👋 Вы получаете 5% от пополнений ваших рефералов</b>\n\n`;
       message += `<b>🌐 Ваш реферальный код:</b> <code>${user.telegramId}</code>\n`;
       message += `<b>🔗 Ваша реферальная ссылка:</b> <code>https://t.me/proxy_simple_bot?start=${user.telegramId}</code>\n\n`;
       message += `<b>👨‍👩‍👦‍👦 Кол-во рефералов:</b> ${referralCount}\n`;
